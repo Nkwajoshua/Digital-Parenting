@@ -1,0 +1,48 @@
+# Android / Gradle
+.gradle/
+build/
+**/build/
+/captures/
+.externalNativeBuild/
+
+# Local configuration
+local.properties
+.gradle/
+
+# IntelliJ / Android Studio
+/.idea/
+*.iml
+*.hprof
+
+# Logs
+*.log
+build-output.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated files
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+*.keystore
+
+# Kotlin/Java
+*.class
+*.jar
+*.war
+*.ear
+
+# Caches
+*/.cxx/
+*/.externalNativeBuild/
+
+# Ignore generated test results
+**/androidTest/outputs/
+**/test-results/
+
+# Ignore Gradle wrapper downloads
+gradle/wrapper/gradle-wrapper.jar

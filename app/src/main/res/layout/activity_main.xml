@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="App Usage Statistics"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:paddingBottom="16dp" />
+
+    <Button
+        android:id="@+id/setLimitButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Set 1-Min Limits (Test)" />
+
+    <Button
+        android:id="@+id/openIntelligenceDashboardButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open Intelligence Dashboard"
+        android:layout_marginTop="12dp" />
+
+    <Button
+        android:id="@+id/openProtectionCenterButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open Protection Center"
+        android:layout_marginTop="12dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/usageRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</LinearLayout>
