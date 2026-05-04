@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Parenting • Parent Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    .glass { background: rgba(255,255,255,0.1); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+  <div class="max-w-7xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-4xl font-bold tracking-tight">Digital Parenting</h1>
+      <div class="flex items-center gap-3">
+        <span class="px-4 py-2 bg-green-500/20 text-green-400 rounded-2xl text-sm font-medium flex items-center gap-2">
+          <i class="fas fa-circle animate-pulse"></i> LIVE
+        </span>
+      </div>
+    </div>
+
+    <div id="children-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <script>
+    // === FIREBASE CONFIG ===
+    const firebaseConfig = {
+      apiKey: "AIzaSyBeB6AZq4CAJA1RfD4S5Qt-wC1Ipp52cCA",
+      authDomain: "digitalparenting-fea62.firebaseapp.com",
+      projectId: "digitalparenting-fea62",
+      storageBucket: "digitalparenting-fea62.firebasestorage.app",
+      messagingSenderId: "152167070921",
+      appId: "1:152167070921:web:cc3e485aa255cca95be118",
+      measurementId: "G-JJ150KHM0N"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    async function loadDashboard() {
+      const container = document.getElementById("children-list");
+
+      db.collection("devices")
+        .onSnapshot(snapshot => {
+          container.innerHTML = "";
+
+          if (snapshot.empty) {
+            container.innerHTML = `
+              <div class="col-span-3 text-center py-12">
+                <p class="text-gray-400 text-xl">No children connected yet</p>
+                <p class="text-gray-500 mt-2">Open the Child App to register a device</p>
+              </div>`;
+            return;
+          }
+
+          snapshot.forEach(doc => {
+            const child = doc.data();
+            const uid = doc.id;
+
+            const card = document.createElement("div");
+            card.className = "glass border border-white/10 rounded-3xl p-6 hover:border-white/30 transition-all";
+            card.innerHTML = `
+              <div class="flex justify-between items-start">
+                <div>
+                  <h3 class="text-2xl font-semibold">${child.deviceId || "Child Device"}</h3>
+                  <p class="text-green-400 text-sm mt-1 flex items-center gap-1">
+                    <i class="fas fa-circle"></i> ${child.status === "active" ? "Online" : "Offline"}
+                  </p>
+                </div>
+                <div class="text-right text-xs text-gray-400">
+                  Last seen<br>
+                  <span class="text-white">${new Date(child.lastSeen).toLocaleTimeString()}</span>
+                </div>
+              </div>
+
+              <div class="mt-8 grid grid-cols-2 gap-4">
+                <button onclick="blockApp('${uid}', 'com.instagram.android')" 
+                        class="bg-red-500 hover:bg-red-600 py-4 rounded-2xl font-medium transition">Block Instagram</button>
+                <button onclick="blockApp('${uid}', 'com.tiktok.android')" 
+                        class="bg-red-500 hover:bg-red-600 py-4 rounded-2xl font-medium transition">Block TikTok</button>
+              </div>
+
+              <button onclick="clearBlock('${uid}')" 
+                      class="w-full mt-4 text-gray-400 hover:text-white text-sm py-3 border border-white/20 rounded-2xl transition">
+                Clear All Blocks
+              </button>
+            `;
+            container.appendChild(card);
+          });
+        });
+    }
+
+    window.blockApp = (uid, packageName) => {
+      db.collection("devices").doc(uid).update({ blockApp: packageName })
+        .then(() => alert("Block command sent to child device!"));
+    };
+
+    window.clearBlock = (uid) => {
+      db.collection("devices").doc(uid).update({ blockApp: null })
+        .then(() => alert("Block cleared!"));
+    };
+
+    loadDashboard();
+  </script>
+</body>
+</html>

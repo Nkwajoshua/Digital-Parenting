@@ -19,8 +19,8 @@ class AppUsageRepository(
 
     suspend fun getUsageStats(): List<AppUsageStats> = dao.getUsageStats()
 
-    suspend fun setLimit(packageName: String, dailyLimitMillis: Long) {
-        limitDao.setLimit(AppLimit(packageName, dailyLimitMillis))
+    suspend fun setLimit(packageName: String, maxMinutes: Int) {
+        limitDao.setLimit(AppLimit(packageName, packageName, maxMinutes, true, System.currentTimeMillis()))
     }
 
     suspend fun getLimit(packageName: String) = limitDao.getLimit(packageName)

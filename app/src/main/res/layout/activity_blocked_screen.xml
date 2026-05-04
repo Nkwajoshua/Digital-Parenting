@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFF4F2"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:background="@drawable/bg_circle_muted"
+        android:gravity="center"
+        android:text="⛔"
+        android:textSize="42sp" />
+
+    <TextView
+        android:id="@+id/tvBlockedTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="App Blocked"
+        android:textColor="#1A1D1F"
+        android:textSize="30sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvBlockedReason"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:text="Daily limit exceeded"
+        android:textColor="#70767C"
+        android:textSize="18sp" />
+
+    <Button
+        android:id="@+id/btnRequestMoreTime"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="34dp"
+        android:background="@drawable/bg_button_primary"
+        android:text="Request More Time"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textSize="18sp" />
+</LinearLayout>

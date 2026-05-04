@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "152167070921",
+    "project_id": "digitalparenting-fea62",
+    "storage_bucket": "digitalparenting-fea62.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:152167070921:android:a8d8186e7dbbc5e25be118",
+        "android_client_info": {
+          "package_name": "com.digitalparenting"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4oLAJ5tJxcP8lgZD6qugk-vj4x6VVAhw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

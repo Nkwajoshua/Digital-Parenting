@@ -2,21 +2,23 @@ package com.digitalparenting.ui
 
 import android.app.Activity
 import android.os.Bundle
-import android.view.Gravity
+import android.widget.Button
 import android.widget.TextView
+import com.digitalparenting.R
 
 class BlockActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_blocked)
 
-        val view = TextView(this).apply {
-            text = "App Blocked 🚫\nTime limit reached"
-            textSize = 24f
-            gravity = Gravity.CENTER
+        val appName = intent.getStringExtra("appName") ?: "Unknown App"
+        findViewById<TextView>(R.id.tvBlockedApp).text = appName
+
+        findViewById<Button>(R.id.btnRequestMoreTime).setOnClickListener {
+            // TODO: Implement request more time logic (could send notification to parent)
+            finish()  // For now, just close
         }
-
-        setContentView(view)
     }
 
     override fun onBackPressed() {

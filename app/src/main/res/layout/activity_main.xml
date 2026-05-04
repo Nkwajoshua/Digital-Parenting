@@ -5,6 +5,54 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- Firestore UID Display Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:elevation="4dp"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        app:cardCornerRadius="8dp"
+        app:cardBackgroundColor="#FF6200EE">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📱 Child UID"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:paddingBottom="4dp" />
+
+            <TextView
+                android:id="@+id/txtChildUid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Loading..."
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:fontFamily="monospace"
+                android:paddingVertical="4dp"
+                android:textIsSelectable="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="👆 Copy this UID to Firestore: children/{uid}"
+                android:textColor="#E0E0E0"
+                android:textSize="10sp"
+                android:paddingTop="4dp" />
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -32,6 +80,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Open Protection Center"
+        android:layout_marginTop="12dp" />
+
+    <Button
+        android:id="@+id/btnSetLimits"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Configure App Limits"
         android:layout_marginTop="12dp" />
 
     <androidx.recyclerview.widget.RecyclerView

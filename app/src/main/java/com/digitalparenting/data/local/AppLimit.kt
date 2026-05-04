@@ -6,5 +6,8 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "app_limits")
 data class AppLimit(
     @PrimaryKey val packageName: String,
-    val dailyLimitMillis: Long
+    val appName: String,
+    val maxMinutes: Int = 60,           // daily limit
+    val enabled: Boolean = true,
+    val lastReset: Long = System.currentTimeMillis()  // for daily reset logic
 )

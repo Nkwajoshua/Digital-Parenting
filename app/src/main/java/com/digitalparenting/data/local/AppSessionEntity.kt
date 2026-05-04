@@ -8,6 +8,7 @@ data class AppSessionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val packageName: String,
+    val appName: String? = null,
     val startTime: Long,
     val endTime: Long,
     val duration: Long

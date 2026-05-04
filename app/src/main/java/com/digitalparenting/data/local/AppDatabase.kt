@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [AppSessionEntity::class, AppLimit::class, com.digitalparenting.data.UserProfile::class, com.digitalparenting.data.BehaviorRecord::class, com.digitalparenting.data.PredictionRecordEntity::class, ProtectionIncidentEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

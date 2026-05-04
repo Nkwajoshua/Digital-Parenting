@@ -30,11 +30,11 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun setLimit(packageName: String, dailyLimitMillis: Long) {
+    fun setLimit(packageName: String, maxMinutes: Int) {
         viewModelScope.launch {
             try {
-                repository.setLimit(packageName, dailyLimitMillis)
-                println("Set limit for $packageName: $dailyLimitMillis ms")
+                repository.setLimit(packageName, maxMinutes)
+                println("Set limit for $packageName: $maxMinutes minutes")
             } catch (e: Exception) {
                 e.printStackTrace()
             }
