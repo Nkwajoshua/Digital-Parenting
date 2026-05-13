@@ -11,15 +11,34 @@ import {
   where,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { logParentChildren, logParentCommand, logParentRequest } from './logger'
+
+const safeSnapshotListener = (tagLogger, sourceName, q, callback, onError) => onSnapshot(q,
+  (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    tagLogger(`${sourceName} snapshot updated`, { count: snap.size })
+  },
+  (error) => {
+    tagLogger(`${sourceName} listener failed`, { code: error.code, message: error.message })
+    onError?.(error)
+  })
 
 export const listenChildren = (callback, onError) => {
   const q = query(collection(db, 'children'), orderBy('updatedAt', 'desc'))
-  return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError)
+  logParentChildren('Subscribing children listener')
+  return safeSnapshotListener(logParentChildren, 'children', q, callback, onError)
 }
 
 export const listenPendingTimeRequests = (callback, onError) => {
   const q = query(collection(db, 'time_requests'), where('status', '==', 'pending'), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError)
+  logParentRequest('Subscribing pending time_requests listener')
+  return safeSnapshotListener(logParentRequest, 'time_requests_pending', q, callback, onError)
+}
+
+export const listenRecentCommands = (childUid, callback, onError) => {
+  const q = query(collection(db, 'children', childUid, 'commands'), orderBy('createdAt', 'desc'), limit(10))
+  logParentCommand('Subscribing commands listener', { childUid })
+  return safeSnapshotListener(logParentCommand, 'commands', q, callback, onError)
 }
 
 export const sendBlockAppCommand = (childUid, appPackage, appName) => addDoc(collection(db, 'children', childUid, 'commands'), {
@@ -50,5 +69,5 @@ export const denyTimeRequest = async (requestId) => updateDoc(doc(db, 'time_requ
 
 export const listenRecentUsageSessions = (childUid, callback, onError) => {
   const q = query(collection(db, 'usage_sessions', childUid, 'sessions'), orderBy('startTime', 'desc'), limit(10))
-  return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError)
+  return safeSnapshotListener(logParentChildren, 'usage_sessions', q, callback, onError)
 }
