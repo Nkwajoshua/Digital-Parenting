@@ -68,6 +68,7 @@ class MonitoringService : Service() {
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private var firestoreListener: ListenerRegistration? = null
     private var commandListener: ListenerRegistration? = null
+    private var authStateListener: FirebaseAuth.AuthStateListener? = null
 
     private lateinit var database: AppDatabase
     private lateinit var dao: AppSessionDao
@@ -85,10 +86,13 @@ class MonitoringService : Service() {
     override fun onCreate() {
         super.onCreate()
         
-        // Log the Firebase UID for Firestore setup
         val auth = FirebaseAuth.getInstance()
-        val uid = auth.currentUser?.uid ?: "ERROR_NO_USER"
-        Log.e("CHILD_UID_FIRESTORE", "👉 USE THIS UID IN FIRESTORE: $uid 👈")
+        val uid = auth.currentUser?.uid
+        if (uid != null) {
+            Log.d("CHILD_AUTH", "MonitoringService boot with UID=$uid")
+        } else {
+            Log.w("CHILD_AUTH", "MonitoringService boot without user; waiting for auth")
+        }
         
         notificationHelper = NotificationHelper(this)
         notificationHelper.createChannels()
@@ -108,16 +112,40 @@ class MonitoringService : Service() {
 
         behaviorPredictor.loadState(this)
         println("Loaded BehaviorPredictor state: ${behaviorPredictor.getMetrics()}")
-        publishChildStatus()
-        startApprovedTimeRequestListener()
-        startRemoteCommandListener()
+        initializeFirebaseFeaturesWhenAuthenticated()
 
         restoreProtectionState()
         updateForegroundNotification()
         startMonitoring()
 
-        // Set up Firebase listener for remote control
-        setupFirebaseListener()
+    }
+
+
+    private fun initializeFirebaseFeaturesWhenAuthenticated() {
+        authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
+
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            val user = auth.currentUser
+            if (user != null) {
+                Log.d("CHILD_AUTH", "MonitoringService auth ready UID=${user.uid}")
+                publishChildStatus()
+                startApprovedTimeRequestListener()
+                startRemoteCommandListener()
+                setupFirebaseListener()
+            } else {
+                Log.w("CHILD_AUTH", "MonitoringService auth unavailable; retrying anonymous sign-in")
+                FirebaseAuth.getInstance().signInAnonymously()
+                    .addOnSuccessListener { result ->
+                        Log.d("CHILD_AUTH", "MonitoringService anonymous sign-in success UID=${result.user?.uid}")
+                    }
+                    .addOnFailureListener { error ->
+                        Log.e("CHILD_AUTH", "MonitoringService anonymous sign-in failed", error)
+                    }
+            }
+        }
+
+        authStateListener = listener
+        FirebaseAuth.getInstance().addAuthStateListener(listener)
     }
 
     private fun publishChildStatus() {
@@ -141,6 +169,8 @@ class MonitoringService : Service() {
         firestoreListener?.remove()
         commandListener?.remove()
         commandListener = null
+        authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
+        authStateListener = null
         hideBlockOverlay()
         currentSession?.let {
             it.endTime = System.currentTimeMillis()
