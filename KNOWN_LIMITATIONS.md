@@ -7,3 +7,4 @@
 - No Cloud Functions are implemented yet for trusted server-side workflows.
 - No push notification pipeline is implemented yet.
 - Build/deploy steps can fail in Codespaces or restricted environments when npm registry access or Gradle wrapper runtime downloads are unavailable.
+- `gradle/wrapper/gradle-wrapper.jar` is currently missing from this repository; Android CI assemble may fail until wrapper is restored/regenerated.

@@ -1,0 +1,218 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isParent(parentUid) {
+      return signedIn() && request.auth.uid == parentUid;
+    }
+
+    function isChild(childUid) {
+      return signedIn() && request.auth.uid == childUid;
+    }
+
+    function childDoc(childUid) {
+      return get(/databases/$(database)/documents/children/$(childUid));
+    }
+
+    function parentOwnsChild(childUid) {
+      return signedIn() && childDoc(childUid).data.parentUid == request.auth.uid;
+    }
+
+    // NOTE: Cloud Functions using Firebase Admin SDK bypass Firestore rules.
+    // This helper is intentionally always false for client SDKs.
+    function isCloudFunctionWrite() {
+      return false;
+    }
+
+    function isAllowedCommandType(commandType) {
+      return commandType in ['block_app', 'unblock_app', 'set_limit'];
+    }
+
+    function isAllowedRequestStatus(status) {
+      return status in ['pending', 'approved', 'denied', 'applied'];
+    }
+
+    match /parents/{parentUid} {
+      allow read, write: if isParent(parentUid);
+    }
+
+    match /children/{childUid} {
+      allow read: if isChild(childUid) || parentOwnsChild(childUid);
+
+      // Child-owned status and health updates only.
+      allow update: if isChild(childUid)
+        && request.resource.data.parentUid == resource.data.parentUid
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'lastHeartbeatAt',
+          'monitoringActive',
+          'batteryLevel',
+          'charging',
+          'appVersion',
+          'deviceTime',
+          'updatedAt',
+          'fcmToken',
+          'fcmTokenUpdatedAt',
+          'permissionUsageAccess',
+          'permissionOverlay',
+          'permissionAccessibility',
+          'permissionBatteryOptimization',
+          'permissionNotifications'
+        ]);
+
+      // Parent-managed updates for linked child docs.
+      allow update: if parentOwnsChild(childUid)
+        && request.resource.data.parentUid == resource.data.parentUid
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'name',
+          'childName',
+          'avatar',
+          'timezone',
+          'dailyLimitMinutes',
+          'bedtimeStart',
+          'bedtimeEnd',
+          'schoolModeEnabled',
+          'allowedApps',
+          'blockedApps',
+          'settings',
+          'notes',
+          'updatedAt'
+        ]);
+
+      // Prevent arbitrary client-side child document creation/deletion.
+      allow create, delete: if false;
+
+      match /commands/{commandId} {
+        allow read: if isChild(childUid) || parentOwnsChild(childUid);
+
+        allow create: if parentOwnsChild(childUid)
+          && request.resource.data.childUid == childUid
+          && request.resource.data.parentUid == request.auth.uid
+          && isAllowedCommandType(request.resource.data.type)
+          && request.resource.data.status == 'pending'
+          && (
+            (request.resource.data.type in ['block_app', 'unblock_app']
+              && request.resource.data.appPackage is string)
+            ||
+            (request.resource.data.type == 'set_limit'
+              && request.resource.data.limitMinutes is int)
+          );
+
+        // Child can only mark command handling fields.
+        allow update: if isChild(childUid)
+          && request.resource.data.childUid == resource.data.childUid
+          && request.resource.data.parentUid == resource.data.parentUid
+          && request.resource.data.type == resource.data.type
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'status',
+            'handledAt',
+            'errorMessage',
+            'updatedAt'
+          ]);
+
+        allow delete: if false;
+      }
+    }
+
+    match /usage_sessions/{childUid}/sessions/{sessionId} {
+      allow read: if isChild(childUid) || parentOwnsChild(childUid);
+      allow create: if isChild(childUid);
+      allow update, delete: if false;
+    }
+
+    match /time_requests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.childUid == request.auth.uid
+        && isAllowedRequestStatus(request.resource.data.status)
+        && request.resource.data.status == 'pending';
+
+      allow read: if signedIn()
+        && (
+          resource.data.childUid == request.auth.uid
+          || parentOwnsChild(resource.data.childUid)
+        );
+
+      // Parent response-only updates.
+      allow update: if signedIn()
+        && parentOwnsChild(resource.data.childUid)
+        && isAllowedRequestStatus(request.resource.data.status)
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'parentResponse',
+          'approvedMinutes',
+          'resolvedAt',
+          'updatedAt'
+        ]);
+
+      // Child can mark approved request as applied.
+      allow update: if signedIn()
+        && resource.data.childUid == request.auth.uid
+        && resource.data.status == 'approved'
+        && request.resource.data.status == 'applied'
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'appliedAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /pairing_codes/{code} {
+      // Parent creates code for themselves.
+      allow create: if signedIn()
+        && request.resource.data.parentUid == request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      // Parent can read/update their own pairing code.
+      allow read: if signedIn()
+        && (resource.data.parentUid == request.auth.uid || resource.data.status == 'pending');
+
+      allow update: if signedIn() && (
+        // Parent-maintained edits while still pending.
+        (resource.data.parentUid == request.auth.uid
+          && resource.data.status == 'pending'
+          && request.resource.data.parentUid == resource.data.parentUid)
+        ||
+        // Child redemption path: pending -> used.
+        (resource.data.status == 'pending'
+          && request.resource.data.status == 'used'
+          && request.resource.data.parentUid == resource.data.parentUid
+          && request.resource.data.usedByChildUid == request.auth.uid)
+      );
+
+      allow delete: if false;
+    }
+
+    match /parent_notifications/{notificationId} {
+      allow read: if signedIn() && resource.data.parentUid == request.auth.uid;
+
+      // Optional safe create path for parent dashboard MVP.
+      allow create: if signedIn()
+        && request.resource.data.parentUid == request.auth.uid;
+
+      // Parent can only set read flags.
+      allow update: if signedIn()
+        && resource.data.parentUid == request.auth.uid
+        && request.resource.data.parentUid == resource.data.parentUid
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'read',
+          'readAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /command_audit/{auditId} {
+      allow read: if signedIn()
+        && resource.data.childUid is string
+        && parentOwnsChild(resource.data.childUid);
+
+      // Admin SDK only (Cloud Functions) should write audit docs.
+      allow create, update, delete: if false;
+    }
+  }
+}
