@@ -51,9 +51,25 @@ No existing listeners are removed.
 
 Web dashboard now includes a lightweight notification setup helper to request browser permission and store parent token. Android has TODO placeholders for future token registration + messaging service.
 
-## Future Migration Path
-1. Keep dual-path (realtime + functions) during rollout.
-2. Add function-level validation/authorization hardening.
-3. Move selected direct client writes behind callable/onRequest functions.
-4. Evolve audit and notification payload schemas with versioning.
-5. Introduce dead-letter/error monitoring for failed FCM sends.
+## Retry & Idempotency Safety Notes
+### Pairing cleanup retry safety
+- Cleanup only mutates documents that are still `status == pending` at transaction commit time.
+- If status changes to `used` (or any non-pending value) during retries/concurrency, that document is skipped.
+- Multiple scheduler retries are safe: already `expired` docs are ignored by the `pending` query and by transaction guard.
+
+### Command audit duplication behavior
+- Firestore at-least-once delivery can re-run triggers in rare retry scenarios.
+- Current audit flow writes append-only records, so duplicate audit rows are possible for the same `{childUid, commandId}` pair.
+- Consumers should treat `commandId` + `childUid` as a dedupe key when generating reports.
+
+### Notification retry behavior
+- Function retries may send duplicate notifications if upstream processing retries after partial success.
+- Payloads include stable identifiers (`requestId`, `childUid`) so clients can optionally dedupe on receipt.
+- Missing-token paths are non-fatal and intentionally log warnings only.
+
+## Future Migration TODOs
+1. Move command creation validation and authorization checks into Cloud Functions.
+2. Move pairing validation to server-side callable/HTTP functions.
+3. Add scheduled cleanup for inactive devices and stale tokens.
+4. Add abuse/rate limiting guardrails for command and request creation.
+5. Add analytics aggregation jobs for usage and notification outcomes.
