@@ -16,7 +16,8 @@ The CI pipeline is split into three independent jobs:
    - Runs `npm install --no-audit --no-fund` and `npm run check`.
 3. **Android Build**
    - Runs `./gradlew --no-daemon assembleDebug`.
-   - Currently marked `continue-on-error: true` because the Gradle wrapper JAR is missing in-repo.
+   - Currently marked `continue-on-error: true` until `gradle/wrapper/gradle-wrapper.jar` is restored and committed by a normal Git client.
+   - `gradle-wrapper.jar` must be restored locally or by a developer machine using `gradle wrapper --gradle-version 8.5` and committed outside Codex because Codex patch flow cannot handle binary files.
 
 ## Reliability hardening applied
 
