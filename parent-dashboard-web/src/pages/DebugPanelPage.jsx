@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listenChildren, listenPendingTimeRequests, listenRecentCommands } from '../services/dashboardApi'
+import { useAuth } from '../services/authContext'
 
 export default function DebugPanelPage() {
+  const { user, devBypass } = useAuth()
   const [children, setChildren] = useState([])
   const [pendingRequests, setPendingRequests] = useState([])
   const [latestCommand, setLatestCommand] = useState(null)
@@ -10,20 +12,21 @@ export default function DebugPanelPage() {
   const [commandListenerStatus, setCommandListenerStatus] = useState('idle')
 
   const selectedChildUid = children[0]?.id || ''
+  const childUids = children.map((c) => c.id)
 
   useEffect(() => {
-    const unsubChildren = listenChildren((rows) => {
+    const unsubChildren = listenChildren(devBypass ? null : user?.uid, (rows) => {
       setChildren(rows)
       setChildrenListenerStatus('connected')
     }, () => setChildrenListenerStatus('error'))
 
-    const unsubRequests = listenPendingTimeRequests((rows) => {
+    const unsubRequests = listenPendingTimeRequests(devBypass ? [] : childUids, (rows) => {
       setPendingRequests(rows)
       setRequestListenerStatus('connected')
     }, () => setRequestListenerStatus('error'))
 
     return () => { unsubChildren(); unsubRequests() }
-  }, [])
+  }, [user?.uid, devBypass, childUids.join(',')])
 
   useEffect(() => {
     if (!selectedChildUid) return () => {}
@@ -46,7 +49,11 @@ export default function DebugPanelPage() {
     <div className="card"><p><b>pending requests listener status:</b> {requestListenerStatus}</p></div>
     <div className="card"><p><b>selected child UID:</b> {selectedChildUid || 'None selected'}</p></div>
     <div className="card"><p><b>latest command status:</b> {latestCommand?.status || 'N/A'}</p></div>
+    <div className="card"><p><b>auth state:</b> {user ? 'authenticated' : devBypass ? 'dev_bypass' : 'signed_out'}</p></div>
+    <div className="card"><p><b>current parentUid:</b> {user?.uid || 'N/A'}</p></div>
+    <div className="card"><p><b>paired children loaded:</b> {children.filter((c) => c.parentUid).length}</p></div>
     <div className="card"><p><b>pending requests loaded:</b> {pendingRequests.length}</p></div>
+    <div className="card"><p><b>active pairing code status:</b> Check Dashboard panel</p></div>
     <div className="card"><p><b>command listener status:</b> {commandListenerStatus}</p></div>
   </div>
 }

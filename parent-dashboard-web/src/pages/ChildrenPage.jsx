@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listenChildren } from '../services/dashboardApi'
+import { useAuth } from '../services/authContext'
 import { logParentChildren } from '../services/logger'
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000
@@ -8,12 +9,13 @@ const ONLINE_WINDOW_MS = 2 * 60 * 1000
 const getUpdatedDate = (timestamp) => timestamp?.toDate?.() || null
 
 export default function ChildrenPage() {
+  const { user, devBypass } = useAuth()
   const [children, setChildren] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const unsub = listenChildren((data) => {
+    const unsub = listenChildren(devBypass ? null : user?.uid, (data) => {
       setChildren(data)
       setLoading(false)
       setError('')
@@ -24,7 +26,7 @@ export default function ChildrenPage() {
     })
 
     return () => unsub()
-  }, [])
+  }, [user?.uid, devBypass])
 
   const now = Date.now()
   const rows = useMemo(() => children.map((child) => {

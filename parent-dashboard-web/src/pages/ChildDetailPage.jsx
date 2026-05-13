@@ -12,6 +12,7 @@ import {
   sendUnblockAppCommand,
 } from '../services/dashboardApi'
 import { logParentChildren, logParentCommand, logParentRequest } from '../services/logger'
+import { useAuth } from '../services/authContext'
 
 function AppControlForm({ values, onChange, onAction, busy }) {
   return <div>
@@ -30,6 +31,7 @@ function AppControlForm({ values, onChange, onAction, busy }) {
 
 export default function ChildDetailPage() {
   const { childUid } = useParams()
+  const { user, devBypass } = useAuth()
   const [children, setChildren] = useState([])
   const [requests, setRequests] = useState([])
   const [sessions, setSessions] = useState([])
@@ -40,13 +42,13 @@ export default function ChildDetailPage() {
   const [form, setForm] = useState({ appName: 'Instagram', appPackage: 'com.instagram.android', maxMinutes: 30 })
 
   useEffect(() => {
-    const unsubChildren = listenChildren(setChildren, (err) => logParentChildren('Child detail children listener failed', { err, childUid }))
-    const unsubReq = listenPendingTimeRequests((rows) => setRequests(rows.filter((r) => r.childUid === childUid)), console.error)
+    const unsubChildren = listenChildren(devBypass ? null : user?.uid, setChildren, (err) => logParentChildren('Child detail children listener failed', { err, childUid }))
+    const unsubReq = listenPendingTimeRequests(devBypass ? [] : [childUid], (rows) => setRequests(rows.filter((r) => r.childUid === childUid)), console.error)
     const unsubSessions = listenRecentUsageSessions(childUid, setSessions, console.error)
     const unsubCommands = listenRecentCommands(childUid, setCommands, console.error)
 
     return () => { unsubChildren(); unsubReq(); unsubSessions(); unsubCommands() }
-  }, [childUid])
+  }, [childUid, user?.uid, devBypass])
 
   const selectedChild = useMemo(() => children.find((c) => c.id === childUid), [children, childUid])
   const latestCommand = commands[0]

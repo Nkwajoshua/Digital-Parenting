@@ -4,13 +4,16 @@ import { BrowserRouter } from 'react-router-dom'
 import './styles.css'
 import App from './App.jsx'
 import { runFirebaseConnectionDiagnostics } from './services/firebase'
+import { AuthProvider } from './services/authContext'
 
 runFirebaseConnectionDiagnostics()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
 )
