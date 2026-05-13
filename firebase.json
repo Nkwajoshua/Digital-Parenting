@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "parent-dashboard-web",
+    "public": "parent-dashboard-web/dist",
     "ignore": [
       "firebase.json",
       "**/.*",

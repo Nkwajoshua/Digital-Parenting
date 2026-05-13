@@ -109,3 +109,71 @@ This repository is designed to be extended for new incident types, additional an
 ## License
 
 Use this project as a foundation for secure digital parenting solutions. Modify and extend with care.
+
+
+## Parent Web Dashboard (Live Firebase Setup)
+
+### 1) Configure Firebase Web environment variables
+1. Open Firebase Console → **Project Settings** → **General** → your **Web app** config.
+2. In `parent-dashboard-web`, copy env template and fill values:
+
+```bash
+cp .env.example .env
+```
+
+Required variables in `parent-dashboard-web/.env`:
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+
+Troubleshooting:
+- If the dashboard shows Firebase config/runtime errors, verify **all** `VITE_FIREBASE_*` values are present and non-empty.
+- Restart Vite dev server/build after updating `.env` because Vite loads env vars at startup.
+
+### 2) Parent dashboard build and deploy
+From repository root:
+
+```bash
+cd parent-dashboard-web
+npm install
+npm run build
+cd ..
+firebase deploy --only hosting
+```
+
+Hosting is configured to serve `parent-dashboard-web/dist` (Vite production output).
+
+If npm registry access is blocked in your environment:
+- Retry later or from a network with npm access.
+- Restore from a previously cached `node_modules` in the same lockfile state.
+- Run deployment from local machine/CI with open registry access.
+
+### 3) Parent dashboard scripts
+`parent-dashboard-web/package.json` provides:
+- `npm run dev`
+- `npm run build`
+- `npm run preview`
+
+## Android Child Build & Firebase Notes
+
+- Place Firebase Android config at: `app/google-services.json`.
+- Build debug APK:
+
+```bash
+./gradlew assembleDebug --no-daemon
+```
+
+- Install to connected device/emulator:
+
+```bash
+./gradlew installDebug --no-daemon
+```
+
+Recommended Logcat filters during live tests:
+- `CHILD_AUTH`
+- `CHILD_UID_FIRESTORE`
+- `RemoteCommand`
+- `TimeRequest`
