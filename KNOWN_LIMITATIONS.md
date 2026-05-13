@@ -1,7 +1,7 @@
 # Known Limitations
 
-- `gradle/wrapper/gradle-wrapper.jar` is missing from this repository, so Android Gradle wrapper execution fails with `ClassNotFoundException: org.gradle.wrapper.GradleWrapperMain` until the wrapper JAR is restored or regenerated in a trusted Android environment.
-- Android CI is configured as non-blocking (`continue-on-error: true`) to keep web/functions checks actionable while wrapper repair is pending.
+- `gradle-wrapper.jar` must be restored locally or by a developer machine using `gradle wrapper --gradle-version 8.5` and committed outside Codex because Codex patch flow cannot handle binary files.
+- Android CI remains non-blocking (`continue-on-error: true`) until `gradle/wrapper/gradle-wrapper.jar` is committed by a normal Git client.
 - The `functions` package currently does not include a committed `package-lock.json`; dependency resolution is therefore less reproducible than `npm ci`-based installs.
 - In restricted environments (including some Codespaces/policy-managed runners), npm registry access for packages such as `firebase-admin` may fail with HTTP 403, which blocks fresh dependency installs.
 - Firebase CLI is not guaranteed to be installed in every execution environment; emulator/deploy commands may fail unless `firebase-tools` is preinstalled.
