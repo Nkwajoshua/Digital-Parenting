@@ -1,0 +1,57 @@
+name: Firebase Deploy (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Target to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options: [hosting, firestore, functions, all]
+
+jobs:
+  build-parent-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build parent dashboard
+        working-directory: parent-dashboard-web
+        run: |
+          npm install
+          npm run build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-parent-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Write service account credentials
+        # Required secret: FIREBASE_SERVICE_ACCOUNT_JSON
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > "$RUNNER_TEMP/firebase-service-account.json"
+      - name: Validate project id secret
+        # Required secret: FIREBASE_PROJECT_ID
+        run: test -n "${{ secrets.FIREBASE_PROJECT_ID }}"
+      - name: Deploy hosting
+        if: ${{ github.event.inputs.deploy_target == 'hosting' || github.event.inputs.deploy_target == 'all' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: firebase deploy --project "${{ secrets.FIREBASE_PROJECT_ID }}" --only hosting
+      - name: Deploy firestore rules
+        if: ${{ github.event.inputs.deploy_target == 'firestore' || github.event.inputs.deploy_target == 'all' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: firebase deploy --project "${{ secrets.FIREBASE_PROJECT_ID }}" --only firestore:rules
+      - name: Deploy functions
+        if: ${{ github.event.inputs.deploy_target == 'functions' || github.event.inputs.deploy_target == 'all' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: firebase deploy --project "${{ secrets.FIREBASE_PROJECT_ID }}" --only functions

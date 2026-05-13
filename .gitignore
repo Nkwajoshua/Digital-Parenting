@@ -46,3 +46,11 @@ Thumbs.db
 
 # Ignore Gradle wrapper downloads
 gradle/wrapper/gradle-wrapper.jar
+
+# Environment and Firebase secrets
+.env
+.env.*
+!.env.example
+*.service-account.json
+serviceAccountKey.json
+firebase-adminsdk*.json
