@@ -52,6 +52,8 @@ export default function ChildDetailPage() {
 
   const selectedChild = useMemo(() => children.find((c) => c.id === childUid), [children, childUid])
   const latestCommand = commands[0]
+  const latestRequest = requests[0]
+  const commandLatency = latestCommand?.handledAt?.toDate?.() && latestCommand?.createdAt?.toDate?.() ? Math.round((latestCommand.handledAt.toDate() - latestCommand.createdAt.toDate()) / 1000) : null
 
   const onFormChange = (event) => {
     const { name, value } = event.target
@@ -109,7 +111,7 @@ export default function ChildDetailPage() {
       <p><b>Name:</b> {selectedChild?.deviceName || 'Unknown device'}</p>
       <p><b>Platform:</b> {selectedChild?.platform || 'unknown'}</p>
       <p><b>Monitoring:</b> <span className={selectedChild?.monitoringActive ? 'badge active' : 'badge offline'}>{selectedChild?.monitoringActive ? 'Active' : 'Inactive'}</span></p>
-      <p><b>Latest sync:</b> {selectedChild?.updatedAt?.toDate?.()?.toLocaleString?.() || 'N/A'}</p>
+      <p><b>Latest heartbeat:</b> {selectedChild?.lastHeartbeatAt?.toDate?.()?.toLocaleString?.() || 'N/A'}</p><p><b>Battery:</b> {typeof selectedChild?.batteryLevel === 'number' ? `${selectedChild.batteryLevel}%` : 'N/A'} {selectedChild?.charging ? '(charging)' : ''}</p><p><b>App Version:</b> {selectedChild?.appVersion || 'N/A'}</p><p><b>Last request result:</b> {latestRequest?.status || 'N/A'}</p>
       <p><b>UID:</b> <code>{childUid}</code> <button onClick={() => navigator.clipboard?.writeText(childUid)}>Copy UID</button></p>
     </div>
 
@@ -120,7 +122,7 @@ export default function ChildDetailPage() {
 
     <div className="card"><h3>Command History (latest 10)</h3>
       {commands.length === 0 ? <p>No commands yet.</p> : commands.map((cmd) => <div key={cmd.id} className="row wrap"><span><b>{cmd.type}</b> • {cmd.appName || 'n/a'} • {cmd.appPackage || 'n/a'}</span><span className={`badge ${cmd.status === 'failed' ? 'danger-badge' : cmd.status === 'handled' ? 'active' : 'offline'}`}>{cmd.status || 'pending'}</span><span>{cmd.createdAt?.toDate?.()?.toLocaleString?.() || 'N/A'}</span><span>{cmd.handledAt?.toDate?.()?.toLocaleString?.() || '-'}</span><span>{cmd.errorMessage || ''}</span></div>)}
-      <p className="muted">Latest command status: {latestCommand?.status || 'N/A'}</p>
+      <p className="muted">Latest command status: {latestCommand?.status || 'N/A'}{commandLatency !== null ? ` · latency ${commandLatency}s` : ''}</p>
     </div>
 
     <div className="card"><h3>Pending Time Requests</h3>

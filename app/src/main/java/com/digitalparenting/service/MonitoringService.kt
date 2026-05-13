@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.*
+import android.content.IntentFilter
 import android.view.LayoutInflater
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
@@ -72,6 +73,7 @@ class MonitoringService : Service() {
     private var firestoreListener: ListenerRegistration? = null
     private var commandListener: ListenerRegistration? = null
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
+    private val heartbeatHandler = Handler(Looper.getMainLooper())
 
     private lateinit var database: AppDatabase
     private lateinit var dao: AppSessionDao
@@ -120,11 +122,13 @@ class MonitoringService : Service() {
         restoreProtectionState()
         updateForegroundNotification()
         startMonitoring()
+        startHeartbeatLoop()
 
     }
 
 
     private fun initializeFirebaseFeaturesWhenAuthenticated() {
+        heartbeatHandler.removeCallbacksAndMessages(null)
         authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
 
         val listener = FirebaseAuth.AuthStateListener { auth ->
@@ -172,6 +176,7 @@ class MonitoringService : Service() {
         firestoreListener?.remove()
         commandListener?.remove()
         commandListener = null
+        heartbeatHandler.removeCallbacksAndMessages(null)
         authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
         authStateListener = null
         hideBlockOverlay()
@@ -203,6 +208,54 @@ class MonitoringService : Service() {
         super.onTaskRemoved(rootIntent)
     }
 
+
+    private fun startHeartbeatLoop() {
+        heartbeatHandler.post(object : Runnable {
+            override fun run() {
+                publishHeartbeat()
+                heartbeatHandler.postDelayed(this, 60_000)
+            }
+        })
+    }
+
+    private fun publishHeartbeat() {
+        val user = FirebaseAuth.getInstance().currentUser ?: return
+        val batteryStatus = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val batteryPct = if (level >= 0 && scale > 0) ((level * 100f) / scale).toInt() else null
+        val chargingState = (batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1)
+        val charging = chargingState == BatteryManager.BATTERY_STATUS_CHARGING || chargingState == BatteryManager.BATTERY_STATUS_FULL
+
+        firestore.collection("children").document(user.uid).update(mapOf(
+            "lastHeartbeatAt" to FieldValue.serverTimestamp(),
+            "monitoringActive" to true,
+            "batteryLevel" to batteryPct,
+            "charging" to charging,
+            "appVersion" to BuildConfig.VERSION_NAME,
+            "deviceTime" to System.currentTimeMillis(),
+            "accessibilityEnabled" to ProtectionStateManager.isAccessibilityEnabled(this),
+            "overlayPermissionGranted" to ProtectionStateManager.isOverlayPermissionGranted(this),
+            "updatedAt" to FieldValue.serverTimestamp()
+        ))
+    }
+
+    private fun createPermissionAlert(type: String, title: String, body: String, severity: String) {
+        val user = FirebaseAuth.getInstance().currentUser ?: return
+        firestore.collection("children").document(user.uid).get().addOnSuccessListener { childSnap ->
+            val parentUid = childSnap.getString("parentUid") ?: return@addOnSuccessListener
+            firestore.collection("parent_notifications").add(mapOf(
+            "parentUid" to parentUid,
+            "type" to type,
+            "severity" to severity,
+            "title" to title,
+            "body" to body,
+            "childUid" to user.uid,
+            "createdAt" to FieldValue.serverTimestamp(),
+            "read" to false
+        ))
+        }
+    }
     private fun startMonitoring() {
         handler.post(object : Runnable {
             override fun run() {
@@ -934,6 +987,7 @@ class MonitoringService : Service() {
                     "Accessibility service is disabled. Re-enable it to continue protection.",
                     null
                 )
+                createPermissionAlert("permissions_revoked", "Accessibility Disabled", "Accessibility was disabled on child device.", "critical")
                 accessibilityAlertShown = true
             }
         } else {
@@ -953,6 +1007,7 @@ class MonitoringService : Service() {
                     "Overlay permission is required for app blocking.",
                     null
                 )
+                createPermissionAlert("permissions_revoked", "Overlay Permission Revoked", "Overlay permission was revoked on child device.", "warning")
                 overlayAlertShown = true
             }
         } else {
