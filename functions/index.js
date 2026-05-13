@@ -8,6 +8,22 @@ admin.initializeApp()
 const db = admin.firestore()
 const MAX_BATCH_SIZE = 500
 
+
+async function createParentNotification({ parentUid, type, severity, title, body, childUid }) {
+  if (!parentUid) return
+  await db.collection('parent_notifications').add({
+    parentUid,
+    type,
+    severity,
+    title,
+    body,
+    childUid: childUid || null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    read: false,
+  })
+}
+
+
 function chunkArray(items, size) {
   const chunks = []
   for (let i = 0; i < items.length; i += size) {
@@ -116,6 +132,15 @@ exports.onCommandCreated = onDocumentCreated('children/{childUid}/commands/{comm
       auditedAt: admin.firestore.FieldValue.serverTimestamp(),
     })
 
+    await createParentNotification({
+      parentUid: data.parentUid || null,
+      type: 'command_created',
+      severity: 'info',
+      title: 'New command queued',
+      body: `${data.type || 'Command'} sent to child device`,
+      childUid,
+    })
+
     logger.info('[COMMAND_AUDIT] Audit entry written.', {
       childUid,
       commandId,
@@ -150,6 +175,15 @@ exports.onTimeRequestCreated = onDocumentCreated('time_requests/{requestId}', as
       logger.warn('[TIME_REQUEST] No parentUid found for child during request notification.', { requestId, childUid })
       return
     }
+
+    await createParentNotification({
+      parentUid,
+      type: 'time_request_created',
+      severity: 'warning',
+      title: 'New time request',
+      body: `${request.childName || child.childName || 'Child'} requested more screen time`,
+      childUid,
+    })
 
     const parentSnap = await db.collection('parents').doc(parentUid).get()
     const parentToken = parentSnap.get('fcmToken')
@@ -203,6 +237,15 @@ exports.onTimeRequestResolved = onDocumentUpdated('time_requests/{requestId}', a
     }
 
     const childSnap = await db.collection('children').doc(childUid).get()
+    const parentUid = childSnap.get('parentUid')
+    await createParentNotification({
+      parentUid: parentUid || null,
+      type: 'time_request_resolved',
+      severity: movedToApproved ? 'info' : 'warning',
+      title: movedToApproved ? 'Time request approved' : 'Time request denied',
+      body: movedToApproved ? 'A child time request has been approved.' : 'A child time request has been denied.',
+      childUid,
+    })
     const token = childSnap.get('fcmToken')
 
     if (!token) {

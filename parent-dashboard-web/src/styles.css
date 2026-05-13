@@ -39,3 +39,6 @@ input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; }
 code { background: #e2e8f0; padding: 2px 4px; border-radius: 4px; }
 
 .notification-status { margin: 12px 0; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.08); }
+.warn-badge { background: #fef3c7; color: #92400e; }
+.dashboard-layout { display: grid; grid-template-columns: 1fr 320px; gap: 12px; }
+.notif-item { border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px; }
