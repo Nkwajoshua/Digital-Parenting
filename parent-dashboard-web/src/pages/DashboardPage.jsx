@@ -24,7 +24,8 @@ export default function DashboardPage() {
     </section>
     <div className="card">
       <h3>Quick Links</h3>
-      <Link to="/children">Manage child devices</Link>
+      <Link to="/children">Manage child devices</Link><br />
+      <Link to="/debug">Open debug panel</Link>
     </div>
   </div>
 }
