@@ -9,6 +9,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
+import com.digitalparenting.service.MonitoringService
 
 class PermissionsSetupActivity : AppCompatActivity() {
 
@@ -159,6 +160,7 @@ class PermissionsSetupActivity : AppCompatActivity() {
                 btnAction.text = if (ready) "Finish Setup" else "Review Setup"
                 btnAction.setOnClickListener {
                     if (ready) {
+                        startForegroundService(Intent(this, MonitoringService::class.java))
                         startActivity(Intent(this, HomeStatusActivity::class.java))
                         finishAffinity()
                     } else {

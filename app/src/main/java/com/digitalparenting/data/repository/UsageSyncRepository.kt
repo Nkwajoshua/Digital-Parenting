@@ -8,6 +8,7 @@ class UsageSyncRepository {
     private val firestore = FirebaseFirestore.getInstance()
 
     fun syncSession(childUid: String, session: AppSessionEntity) {
+        // TODO(parent-dashboard): Build usage and analytics views from usage_sessions/{childUid}/sessions in parent web/app.
         val sessionData = hashMapOf(
             "packageName" to session.packageName,
             "appName" to session.appName,

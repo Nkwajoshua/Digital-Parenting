@@ -66,11 +66,6 @@ class MonitoringService : Service() {
     private val usageSyncRepository = UsageSyncRepository()
     private var timeRequestListener: ListenerRegistration? = null
     private val firestore by lazy { FirebaseFirestore.getInstance() }
-    private val childUid: String by lazy {
-        // Reuse the same device ID we already register
-        Settings.Secure.getString(applicationContext.contentResolver, Settings.Secure.ANDROID_ID)
-            ?: "unknown-child"
-    }
     private var firestoreListener: ListenerRegistration? = null
     private var commandListener: ListenerRegistration? = null
 
@@ -113,6 +108,7 @@ class MonitoringService : Service() {
 
         behaviorPredictor.loadState(this)
         println("Loaded BehaviorPredictor state: ${behaviorPredictor.getMetrics()}")
+        publishChildStatus()
         startApprovedTimeRequestListener()
         startRemoteCommandListener()
 
@@ -122,6 +118,20 @@ class MonitoringService : Service() {
 
         // Set up Firebase listener for remote control
         setupFirebaseListener()
+    }
+
+    private fun publishChildStatus() {
+        val user = FirebaseAuth.getInstance().currentUser ?: return
+        val data = hashMapOf(
+            "uid" to user.uid,
+            "deviceName" to "${Build.MANUFACTURER} ${Build.MODEL}",
+            "platform" to "android",
+            "monitoringActive" to true,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+
+        // TODO(parent-dashboard): Read children/{childUid} for live device status in parent control center.
+        firestore.collection("children").document(user.uid).set(data)
     }
 
     override fun onDestroy() {
@@ -258,7 +268,7 @@ class MonitoringService : Service() {
             BlockStateManager.setBlockMode(newApp, mode)
 
             if (prediction.riskScore >= 80) {
-                notificationHelper.showRiskAlert(
+                notificationHelper.showChildAlert(
                     "High Risk Behavior",
                     "Risky usage pattern detected for $newApp"
                 )
@@ -291,7 +301,7 @@ class MonitoringService : Service() {
                 BlockMode.BLOCKED -> {
                     BlockStateManager.setBlocked(setOf(newApp))
                     handler.post { showBlockOverlay() }
-                    notificationHelper.showRiskAlert(
+                    notificationHelper.showChildAlert(
                         "App Blocked",
                         "$newApp was blocked due to limit or risk level"
                     )
@@ -510,7 +520,7 @@ class MonitoringService : Service() {
                     )
 
                 withContext(Dispatchers.Main) {
-                    notificationHelper.showRiskAlert(
+                    notificationHelper.showChildAlert(
                         "Extra Time Approved",
                         "$approvedMinutes minutes added for $appName"
                     )
@@ -531,6 +541,7 @@ class MonitoringService : Service() {
         commandListener?.remove()
 
         commandListener = firestore
+            // Parent control center should enqueue commands under children/{childUid}/commands/{commandId}.
             .collection("children")
             .document(user.uid)
             .collection("commands")
