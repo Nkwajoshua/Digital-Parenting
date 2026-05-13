@@ -1,27 +1,45 @@
 # CI and Testing
 
-## What CI checks
+## CI workflow
 
-Workflow: `.github/workflows/ci.yml`
+Workflow file: `.github/workflows/ci.yml`
 
-Jobs:
-- `parent-web`: install dependencies, run env check helper, build Vite app.
-- `functions`: install dependencies, run JS syntax check (`npm run check`).
-- `android`: run `./gradlew assembleDebug` as non-blocking (`continue-on-error: true`).
+The CI pipeline is split into three independent jobs:
 
-## Run locally
+1. **Parent Dashboard Web**
+   - Runs in `parent-dashboard-web`.
+   - Uses Node.js 20.
+   - Runs `npm ci`, `npm run check:env`, and `npm run build`.
+2. **Firebase Functions**
+   - Runs in `functions`.
+   - Uses Node.js 20 (matching `functions/package.json` engines).
+   - Runs `npm install --no-audit --no-fund` and `npm run check`.
+3. **Android Build**
+   - Runs `./gradlew --no-daemon assembleDebug`.
+   - Currently marked `continue-on-error: true` because the Gradle wrapper JAR is missing in-repo.
 
-- Parent web:
-  - `cd parent-dashboard-web && npm install`
-  - `cd parent-dashboard-web && npm run check:env`
-  - `cd parent-dashboard-web && npm run build`
-- Functions:
-  - `cd functions && npm install`
-  - `cd functions && npm run check`
-- Android:
-  - `./gradlew assembleDebug`
-- Firestore rules (if Firebase CLI installed):
-  - `firebase emulators:exec --only firestore "echo rules-check"`
+## Reliability hardening applied
+
+- Added `concurrency` cancellation for duplicate branch runs.
+- Added `timeout-minutes` per job.
+- Added explicit step names for readable logs.
+- Ensured each job uses the correct `working-directory` where applicable.
+- Enabled npm cache for parent web where a lockfile exists.
+- Avoided duplicate installs and unnecessary artifact steps.
+
+## Local validation commands
+
+### Parent web
+- `cd parent-dashboard-web && npm ci`
+- `cd parent-dashboard-web && npm run check:env`
+- `cd parent-dashboard-web && npm run build`
+
+### Functions
+- `cd functions && npm install --no-audit --no-fund`
+- `cd functions && npm run check`
+
+### Android
+- `./gradlew assembleDebug`
 
 ## Expected Firebase env vars (parent dashboard)
 
@@ -32,8 +50,4 @@ Jobs:
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
-## Known environment issues
-
-- GitHub/Codespaces may lack Firebase CLI by default.
-- Android job may fail if Gradle wrapper JAR is missing; this job is non-blocking and documented in `KNOWN_LIMITATIONS.md`.
-- Parent web env check warns (does not fail) when `.env` file is absent, to support CI secret injection patterns.
+`check:env` is intentionally graceful when `.env` is absent (warns + exits 0) so CI can inject secrets via environment variables.

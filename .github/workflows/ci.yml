@@ -3,48 +3,88 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   parent-web:
+    name: Parent Dashboard Web
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: parent-dashboard-web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: parent-dashboard-web/package-lock.json
-      - run: npm install
-      - run: npm run check:env
-      - run: npm run build
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Firebase env configuration
+        run: npm run check:env
+
+      - name: Build web app
+        run: npm run build
 
   functions:
+    name: Firebase Functions
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: functions
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: functions/package-lock.json
-      - run: npm install
-      - run: npm run check
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run static syntax check
+        run: npm run check
 
   android:
+    name: Android Build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-      - name: Gradle assembleDebug
-        run: ./gradlew assembleDebug
+
+      - name: Validate Gradle wrapper integrity
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "::warning::gradle-wrapper.jar is missing. Android build cannot run in CI until the wrapper JAR is restored."
+            exit 1
+          fi
+          if [ ! -x ./gradlew ]; then
+            echo "::error::gradlew is not executable."
+            exit 1
+          fi
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon assembleDebug

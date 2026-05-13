@@ -1,10 +1,8 @@
 # Known Limitations
 
-- Firestore security rules are draft-level unless explicitly deployed to the active Firebase project.
-- Pairing code expiry is currently validated by client time checks and can be affected by device clock drift unless server-side enforcement is added.
-- Child app currently uses anonymous Firebase authentication.
-- Parent web auth currently uses email/password MVP flow.
-- No Cloud Functions are implemented yet for trusted server-side workflows.
-- No push notification pipeline is implemented yet.
-- Build/deploy steps can fail in Codespaces or restricted environments when npm registry access or Gradle wrapper runtime downloads are unavailable.
-- `gradle/wrapper/gradle-wrapper.jar` is currently missing from this repository; Android CI assemble may fail until wrapper is restored/regenerated.
+- `gradle/wrapper/gradle-wrapper.jar` is missing from this repository, so Android Gradle wrapper execution fails with `ClassNotFoundException: org.gradle.wrapper.GradleWrapperMain` until the wrapper JAR is restored or regenerated in a trusted Android environment.
+- Android CI is configured as non-blocking (`continue-on-error: true`) to keep web/functions checks actionable while wrapper repair is pending.
+- The `functions` package currently does not include a committed `package-lock.json`; dependency resolution is therefore less reproducible than `npm ci`-based installs.
+- In restricted environments (including some Codespaces/policy-managed runners), npm registry access for packages such as `firebase-admin` may fail with HTTP 403, which blocks fresh dependency installs.
+- Firebase CLI is not guaranteed to be installed in every execution environment; emulator/deploy commands may fail unless `firebase-tools` is preinstalled.
+- Firestore rules behavior still depends on deployment target/project configuration; local file presence alone does not guarantee active enforcement.
