@@ -48,12 +48,6 @@
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 
-        <activity android:name=".ui.IntelligenceDashboardActivity"
-            android:exported="false" />
-
-        <activity android:name=".ui.ProtectionCenterActivity"
-            android:exported="false" />
-
         <!-- Foreground Service -->
         <service
             android:name=".service.MonitoringService"

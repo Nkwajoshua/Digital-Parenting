@@ -9,13 +9,13 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.digitalparenting.R
-import com.digitalparenting.ui.MainActivity
+import com.digitalparenting.ui.HomeStatusActivity
 
 class NotificationHelper(private val context: Context) {
 
     companion object {
         const val CHANNEL_MONITORING = "monitoring_status"
-        const val CHANNEL_RISK = "risk_alerts"
+        const val CHANNEL_CHILD_ALERTS = "child_alerts"
         const val CHANNEL_SECURITY = "security_alerts"
 
         const val FOREGROUND_NOTIFICATION_ID = 1001
@@ -37,11 +37,11 @@ class NotificationHelper(private val context: Context) {
         }
 
         val riskChannel = NotificationChannel(
-            CHANNEL_RISK,
-            "Risk Alerts",
+            CHANNEL_CHILD_ALERTS,
+            "Child Alerts",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Alerts about risky behavior and app blocking"
+            description = "Child-facing alerts such as app blocked and request status"
         }
 
         val securityChannel = NotificationChannel(
@@ -58,7 +58,7 @@ class NotificationHelper(private val context: Context) {
     }
 
     fun buildForegroundNotification(contentText: String): Notification {
-        val intent = Intent(context, MainActivity::class.java)
+        val intent = Intent(context, HomeStatusActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             context,
             0,
@@ -77,10 +77,10 @@ class NotificationHelper(private val context: Context) {
             .build()
     }
 
-    fun showRiskAlert(title: String, message: String) {
+    fun showChildAlert(title: String, message: String) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_RISK)
+        val notification = NotificationCompat.Builder(context, CHANNEL_CHILD_ALERTS)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(message)
