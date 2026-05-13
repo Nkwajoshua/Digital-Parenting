@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from 'firebase/app'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
+import { getMessaging, isSupported } from 'firebase/messaging'
 import { logParentFirebase } from './logger'
 
 const firebaseConfig = {
@@ -49,4 +50,16 @@ export const runFirebaseConnectionDiagnostics = () => {
   }, (error) => {
     logParentFirebase('Auth state listener failed', { error })
   })
+}
+
+
+export const getWebMessaging = async () => {
+  try {
+    const supported = await isSupported()
+    if (!supported) return null
+    return getMessaging(app)
+  } catch (error) {
+    logParentFirebase('Messaging initialization failed', { error })
+    return null
+  }
 }

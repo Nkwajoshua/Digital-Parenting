@@ -37,3 +37,5 @@ input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; }
 
 .dev-only { border: 1px dashed #f59e0b; }
 code { background: #e2e8f0; padding: 2px 4px; border-radius: 4px; }
+
+.notification-status { margin: 12px 0; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.08); }

@@ -4,7 +4,8 @@ import ChildrenPage from './pages/ChildrenPage'
 import ChildDetailPage from './pages/ChildDetailPage'
 import DebugPanelPage from './pages/DebugPanelPage'
 import { useAuth } from './services/authContext'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { registerBrowserNotifications } from './services/notifications'
 
 function LoginScreen() {
   const { signIn, signUp, devBypass, setDevBypass } = useAuth()
@@ -22,6 +23,22 @@ function LoginScreen() {
 
 export default function App() {
   const { user, loading, signOutUser, devBypass } = useAuth()
+  const [notificationStatus, setNotificationStatus] = useState('Not enabled')
+
+  useEffect(() => {
+    if (typeof Notification === 'undefined') setNotificationStatus('Not supported')
+    else setNotificationStatus(Notification.permission === 'granted' ? 'Enabled' : 'Not enabled')
+  }, [])
+
+  const enableNotifications = async () => {
+    try {
+      const result = await registerBrowserNotifications()
+      setNotificationStatus(result.message)
+    } catch (error) {
+      setNotificationStatus(error.message || 'Notification setup failed.')
+    }
+  }
+
   if (loading) return <main className="content"><p>Loading auth...</p></main>
   if (!user && !devBypass) return <LoginScreen />
 
@@ -33,6 +50,10 @@ export default function App() {
           <Link to="/">Home</Link><Link to="/children">Child Devices</Link><Link to="/debug">Debug Panel</Link>
         </nav>
         <p className="muted">Parent UID: {user?.uid || 'DEV_BYPASS'}</p>
+        <div className="notification-status">
+          <p className="muted"><b>Notifications:</b> {notificationStatus}</p>
+          <button onClick={enableNotifications}>Enable Notifications</button>
+        </div>
         <button onClick={() => user ? signOutUser() : null} disabled={!user}>Sign Out</button>
       </aside>
       <main className="content">

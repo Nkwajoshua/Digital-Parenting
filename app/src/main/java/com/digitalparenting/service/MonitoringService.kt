@@ -48,6 +48,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
 
 class MonitoringService : Service() {
+    // TODO(FCM): Register child device FCM token and store at children/{childUid}.fcmToken.
+    // TODO(FCM): Add FirebaseMessagingService to handle parent approval/denial push notifications.
+    // TODO(FCM): Add silent push wake-up hook to refresh pending commands when app process is idle.
 
     private lateinit var notificationHelper: NotificationHelper
     private val handler = Handler(Looper.getMainLooper())
