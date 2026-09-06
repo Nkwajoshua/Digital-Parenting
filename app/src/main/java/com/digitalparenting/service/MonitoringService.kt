@@ -68,9 +68,9 @@ class MonitoringService : Service() {
         Intent(this, BlockActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
     }
     private val usageSyncRepository = UsageSyncRepository()
+    private val securityAlertReporter by lazy { ChildSecurityAlertReporter() }
     private var timeRequestListener: ListenerRegistration? = null
     private val firestore by lazy { FirebaseFirestore.getInstance() }
-    private var firestoreListener: ListenerRegistration? = null
     private var commandListener: ListenerRegistration? = null
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
     private val heartbeatHandler = Handler(Looper.getMainLooper())
@@ -138,7 +138,6 @@ class MonitoringService : Service() {
                 publishChildStatus()
                 startApprovedTimeRequestListener()
                 startRemoteCommandListener()
-                setupFirebaseListener()
             } else {
                 Log.w("CHILD_AUTH", "MonitoringService auth unavailable; retrying anonymous sign-in")
                 FirebaseAuth.getInstance().signInAnonymously()
@@ -157,23 +156,25 @@ class MonitoringService : Service() {
 
     private fun publishChildStatus() {
         val user = FirebaseAuth.getInstance().currentUser ?: return
-        val data = hashMapOf(
-            "uid" to user.uid,
-            "deviceName" to "${Build.MANUFACTURER} ${Build.MODEL}",
-            "platform" to "android",
-            "monitoringActive" to true,
-            "updatedAt" to FieldValue.serverTimestamp()
-        )
-
-        // TODO(parent-dashboard): Read children/{childUid} for live device status in parent control center.
-        firestore.collection("children").document(user.uid).set(data)
+        firestore.collection("children")
+            .document(user.uid)
+            .update(
+                mapOf(
+                    "deviceName" to "${Build.MANUFACTURER} ${Build.MODEL}",
+                    "platform" to "android",
+                    "monitoringActive" to true,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .addOnFailureListener { error ->
+                Log.w("CHILD_STATUS", "Unable to update child status before/without pairing", error)
+            }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         timeRequestListener?.remove()
         timeRequestListener = null
-        firestoreListener?.remove()
         commandListener?.remove()
         commandListener = null
         heartbeatHandler.removeCallbacksAndMessages(null)
@@ -241,21 +242,14 @@ class MonitoringService : Service() {
     }
 
     private fun createPermissionAlert(type: String, title: String, body: String, severity: String) {
-        val user = FirebaseAuth.getInstance().currentUser ?: return
-        firestore.collection("children").document(user.uid).get().addOnSuccessListener { childSnap ->
-            val parentUid = childSnap.getString("parentUid") ?: return@addOnSuccessListener
-            firestore.collection("parent_notifications").add(mapOf(
-            "parentUid" to parentUid,
-            "type" to type,
-            "severity" to severity,
-            "title" to title,
-            "body" to body,
-            "childUid" to user.uid,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "read" to false
-        ))
-        }
+        securityAlertReporter.report(
+            type = type,
+            title = title,
+            body = body,
+            severity = severity
+        )
     }
+
     private fun startMonitoring() {
         handler.post(object : Runnable {
             override fun run() {
@@ -316,7 +310,6 @@ class MonitoringService : Service() {
 
         println("Switched to: $newApp")
 
-        // 🔥 INSTANT enforcement (synchronous, no delay)
         CoroutineScope(Dispatchers.IO).launch {
             val limit = limitDao.getLimit(newApp)?.let { if (it.enabled) it.maxMinutes * 60_000L else 0L } ?: 0L
 
@@ -337,18 +330,16 @@ class MonitoringService : Service() {
             val sessionsForApp = sessionWindow.filter { it.packageName == newApp }
             val baseline = if (profile.avgDailyUsageMinutes <= 0L) 1.0 else profile.avgDailyUsageMinutes.toDouble()
 
-            // 🚀 Predictive Intelligence
             val prediction = behaviorPredictor.predict(newApp, sessionsForApp, profile, sessionWindow)
 
             val insight = behaviorAnalyzer.analyze(newApp, sessionsForApp, limit, baseline)
             
-            // Boost intervention mode if prediction risk is high
             var mode = interventionEngine.decide(insight)
             if (prediction.likelyToBinge && mode.ordinal < BlockMode.DELAY.ordinal) {
-                mode = BlockMode.DELAY  // Escalate to at least DELAY if binge predicted
+                mode = BlockMode.DELAY
             }
             if (prediction.riskScore >= 80 && mode.ordinal < BlockMode.BLOCKED.ordinal) {
-                mode = BlockMode.BLOCKED  // Escalate to BLOCKED if very high risk
+                mode = BlockMode.BLOCKED
             }
 
             BlockStateManager.setBlockMode(newApp, mode)
@@ -367,18 +358,16 @@ class MonitoringService : Service() {
             }
 
             when (mode) {
-                    BlockMode.NONE -> {
+                BlockMode.NONE -> {
                     BlockStateManager.clearBlocked()
                     ProtectionStateManager.clearPersistedBlockState(this@MonitoringService)
                     handler.post { hideBlockOverlay() }
                 }
                 BlockMode.WARNING -> {
-                    // Show warning overlay
                     BlockStateManager.removeBlocked(newApp)
                     handler.post { showWarningOverlay() }
                 }
                 BlockMode.DELAY -> {
-                    // Add delay friction
                     BlockStateManager.removeBlocked(newApp)
                     handler.postDelayed({
                         showBlockOverlay()
@@ -410,7 +399,6 @@ class MonitoringService : Service() {
                 ProtectionStateManager.clearPersistedBlockState(this@MonitoringService)
             }
 
-            // Persist profile and behavior record
             userProfileDao.upsert(profile)
             behaviorRecordDao.insert(
                 BehaviorRecord(
@@ -422,7 +410,6 @@ class MonitoringService : Service() {
                 )
             )
 
-            // Persist prediction record and schedule outcome evaluation
             val predictionId = predictionRecordDao.insert(
                 PredictionRecordEntity(
                     timestamp = System.currentTimeMillis(),
@@ -435,13 +422,11 @@ class MonitoringService : Service() {
                 )
             ).toInt()
 
-            // Evaluate after a real-world production delay (15 minutes)
             CoroutineScope(Dispatchers.IO).launch {
                 delay(predictionEvaluationDelayMillis)
                 evaluatePredictionOutcome(predictionId, newApp, prediction, profile)
             }
 
-            // Log behavior and prediction
             println("Prediction explainability: risk=${prediction.riskScore}, reason=${prediction.reason}")
             println("Behavior: Score=${insight.addictionScore} Risk=${insight.riskLevel} Mode=$mode App=$newApp")
             println("Prediction: Binge=${prediction.likelyToBinge} Risk=${prediction.riskScore} Next=${prediction.predictedNextApp} Reason=${prediction.reason}")
@@ -461,11 +446,10 @@ class MonitoringService : Service() {
     }
 
     private suspend fun checkAndEnforceLimit(packageName: String, appName: String) {
-        val limit = limitDao.getLimit(packageName) ?: return  // no limit set = allowed
+        val limit = limitDao.getLimit(packageName) ?: return
 
         if (!limit.enabled) return
 
-        // Simple daily total check (you can make this more advanced later)
         val todayUsage = dao.getUsageStats().firstOrNull { it.packageName == packageName }?.totalTime ?: 0L
         val maxMillis = limit.maxMinutes * 60_000L
 
@@ -473,7 +457,6 @@ class MonitoringService : Service() {
             currentBlockedPackage = packageName
             launchBlockedScreen(appName, packageName, "Daily limit exceeded")
 
-            // Optional: force-stop the app
             val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
             am.killBackgroundProcesses(packageName)
         }
@@ -627,7 +610,6 @@ class MonitoringService : Service() {
         commandListener?.remove()
 
         commandListener = firestore
-            // Parent control center should enqueue commands under children/{childUid}/commands/{commandId}.
             .collection("children")
             .document(user.uid)
             .collection("commands")
@@ -761,34 +743,7 @@ class MonitoringService : Service() {
             )
     }
 
-    private fun setupFirebaseListener() {
-        val auth = FirebaseAuth.getInstance()
-        val user = auth.currentUser
-        if (user != null) {
-            firestoreListener = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                .collection("children")
-                .document(user.uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        Log.e("Firestore", "Listen failed", error)
-                        return@addSnapshotListener
-                    }
-                    if (snapshot != null && snapshot.exists()) {
-                        val blockApp = snapshot.getString("blockApp")
-                        if (blockApp != null) {
-                            BlockStateManager.setBlocked(setOf(blockApp))
-                            handler.post { showBlockOverlay() }
-                        } else {
-                            BlockStateManager.clearBlocked()
-                            handler.post { hideBlockOverlay() }
-                        }
-                    }
-                }
-        }
-    }
-
     private fun showBlockOverlay() {
-        // 🔥 Prevent duplicate overlays
         if (overlayView != null) {
             println("Overlay already active")
             return
@@ -802,7 +757,6 @@ class MonitoringService : Service() {
         try {
             overlayView = LayoutInflater.from(this).inflate(R.layout.block_overlay, null)
 
-            // 🔥 Aggressive flags for maximum blockability
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -837,7 +791,6 @@ class MonitoringService : Service() {
     }
 
     private fun showWarningOverlay() {
-        // Similar to block overlay but warning
         if (overlayView != null) {
             println("Warning overlay already active")
             return
@@ -851,7 +804,6 @@ class MonitoringService : Service() {
         try {
             overlayView = LayoutInflater.from(this).inflate(R.layout.block_overlay, null)
 
-            // Modify text to warning
             val titleView = overlayView?.findViewById<android.widget.TextView>(R.id.overlayTitle)
             val textView = overlayView?.findViewById<android.widget.TextView>(R.id.overlayText)
             titleView?.text = "⚠️ Warning"
@@ -890,10 +842,8 @@ class MonitoringService : Service() {
         CoroutineScope(Dispatchers.IO).launch {
             dao.insertSession(entity)
 
-            // Add this right after dao.insertSession(entity)
             checkAndEnforceLimit(entity.packageName, entity.appName ?: "Unknown App")
 
-            // Add right after the blocking check
             usageSyncRepository.syncSession(childUid, entity)
 
             val durationSeconds = duration / 1000
@@ -910,7 +860,7 @@ class MonitoringService : Service() {
         val now = System.currentTimeMillis()
         val windowEnd = now
 
-        val windowStart = now - 15 * 60 * 1000L // 15 min window
+        val windowStart = now - 15 * 60 * 1000L
         val usageWindow = dao.getSessionsBetween(windowStart, windowEnd)
             .filter { it.packageName == appPackage }
 
