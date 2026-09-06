@@ -16,18 +16,19 @@
         android:label="Digital Parenting"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
-        <!-- Main Activity -->
-        <activity android:name=".ui.MainActivity"
-            android:exported="false" />
-
-        <!-- New Child App Activities -->
-        <activity android:name=".ui.WelcomeActivity"
+        <!-- Child bootstrap: authenticate first, then route to pairing or home. -->
+        <activity
+            android:name=".ui.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- Child App Activities -->
+        <activity android:name=".ui.WelcomeActivity"
+            android:exported="false" />
         <activity android:name=".ui.PairingCodeActivity"
             android:exported="false" />
         <activity android:name=".ui.PermissionsSetupActivity"

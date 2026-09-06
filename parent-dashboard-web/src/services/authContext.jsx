@@ -5,11 +5,14 @@ import { auth, db } from './firebase'
 
 const DEV_BYPASS_KEY = 'dev_parent_bypass'
 const AuthContext = createContext(null)
+const devBypassAvailable = import.meta.env.DEV
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [devBypass, setDevBypass] = useState(localStorage.getItem(DEV_BYPASS_KEY) === '1')
+  const [devBypass, setDevBypassState] = useState(
+    devBypassAvailable && localStorage.getItem(DEV_BYPASS_KEY) === '1',
+  )
 
   useEffect(() => onAuthStateChanged(auth, async (nextUser) => {
     setUser(nextUser)
@@ -30,7 +33,13 @@ export function AuthProvider({ children }) {
     loading,
     devBypass,
     setDevBypass: (enabled) => {
-      setDevBypass(enabled)
+      if (!devBypassAvailable) {
+        setDevBypassState(false)
+        localStorage.removeItem(DEV_BYPASS_KEY)
+        return
+      }
+
+      setDevBypassState(enabled)
       if (enabled) localStorage.setItem(DEV_BYPASS_KEY, '1')
       else localStorage.removeItem(DEV_BYPASS_KEY)
     },

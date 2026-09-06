@@ -62,24 +62,36 @@ export default function ChildDetailPage() {
 
   const onCommandAction = async (action) => {
     const { appName, appPackage, maxMinutes } = form
+    const parentUid = user?.uid
+
+    if (!parentUid) {
+      setFeedback('Sign in as a parent before sending commands.')
+      return
+    }
+
     if (!appName || !appPackage) {
       setFeedback('appName and appPackage are required')
       return
     }
 
+    if (action === 'set_limit' && Number(maxMinutes) <= 0) {
+      setFeedback('maxMinutes must be greater than zero')
+      return
+    }
+
     const handlers = {
-      block_app: () => sendBlockAppCommand(childUid, appPackage, appName),
-      unblock_app: () => sendUnblockAppCommand(childUid, appPackage, appName),
-      set_limit: () => sendSetLimitCommand(childUid, appPackage, appName, Number(maxMinutes || 0)),
+      block_app: () => sendBlockAppCommand(parentUid, childUid, appPackage, appName),
+      unblock_app: () => sendUnblockAppCommand(parentUid, childUid, appPackage, appName),
+      set_limit: () => sendSetLimitCommand(parentUid, childUid, appPackage, appName, Number(maxMinutes)),
     }
 
     try {
       setCommandBusy(true)
       await handlers[action]()
       setFeedback(`${action} queued successfully`)
-      logParentCommand('Command queued', { childUid, action, appName, appPackage, maxMinutes })
+      logParentCommand('Command queued', { parentUid, childUid, action, appName, appPackage, maxMinutes })
     } catch (error) {
-      logParentCommand('Command failed', { childUid, action, error })
+      logParentCommand('Command failed', { parentUid, childUid, action, error })
       setFeedback(`${action} failed: ${error?.message || 'unknown error'}`)
     } finally {
       setCommandBusy(false)

@@ -18,13 +18,23 @@ service cloud.firestore {
     }
 
     function parentOwnsChild(childUid) {
-      return signedIn() && childDoc(childUid).data.parentUid == request.auth.uid;
+      return signedIn()
+        && exists(/databases/$(database)/documents/children/$(childUid))
+        && childDoc(childUid).data.parentUid == request.auth.uid;
     }
 
-    // NOTE: Cloud Functions using Firebase Admin SDK bypass Firestore rules.
-    // This helper is intentionally always false for client SDKs.
-    function isCloudFunctionWrite() {
-      return false;
+    function pairingDoc(code) {
+      return get(/databases/$(database)/documents/pairing_codes/$(code));
+    }
+
+    function validPendingPairing(code, parentUid) {
+      return signedIn()
+        && code is string
+        && parentUid is string
+        && exists(/databases/$(database)/documents/pairing_codes/$(code))
+        && pairingDoc(code).data.status == 'pending'
+        && pairingDoc(code).data.parentUid == parentUid
+        && pairingDoc(code).data.expiresAt > request.time;
     }
 
     function isAllowedCommandType(commandType) {
@@ -42,10 +52,47 @@ service cloud.firestore {
     match /children/{childUid} {
       allow read: if isChild(childUid) || parentOwnsChild(childUid);
 
-      // Child-owned status and health updates only.
+      // MVP pairing path. The child may create only its own linked record and
+      // only while presenting a currently valid parent-issued pairing code.
+      allow create: if isChild(childUid)
+        && request.resource.data.keys().hasAll([
+          'parentUid',
+          'paired',
+          'pairedAt',
+          'pairingCode',
+          'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'parentUid',
+          'paired',
+          'pairedAt',
+          'pairingCode',
+          'updatedAt',
+          'deviceName',
+          'platform',
+          'monitoringActive',
+          'lastHeartbeatAt',
+          'batteryLevel',
+          'charging',
+          'appVersion',
+          'deviceTime',
+          'accessibilityEnabled',
+          'overlayPermissionGranted'
+        ])
+        && request.resource.data.paired == true
+        && validPendingPairing(
+          request.resource.data.pairingCode,
+          request.resource.data.parentUid
+        );
+
+      // Child-owned status and health updates only. Pairing ownership cannot be changed.
       allow update: if isChild(childUid)
         && request.resource.data.parentUid == resource.data.parentUid
+        && request.resource.data.pairingCode == resource.data.pairingCode
+        && request.resource.data.paired == resource.data.paired
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'deviceName',
+          'platform',
           'lastHeartbeatAt',
           'monitoringActive',
           'batteryLevel',
@@ -59,10 +106,12 @@ service cloud.firestore {
           'permissionOverlay',
           'permissionAccessibility',
           'permissionBatteryOptimization',
-          'permissionNotifications'
+          'permissionNotifications',
+          'accessibilityEnabled',
+          'overlayPermissionGranted'
         ]);
 
-      // Parent-managed updates for linked child docs.
+      // Parent-managed settings for an already linked child.
       allow update: if parentOwnsChild(childUid)
         && request.resource.data.parentUid == resource.data.parentUid
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
@@ -81,8 +130,7 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      // Prevent arbitrary client-side child document creation/deletion.
-      allow create, delete: if false;
+      allow delete: if false;
 
       match /commands/{commandId} {
         allow read: if isChild(childUid) || parentOwnsChild(childUid);
@@ -92,19 +140,21 @@ service cloud.firestore {
           && request.resource.data.parentUid == request.auth.uid
           && isAllowedCommandType(request.resource.data.type)
           && request.resource.data.status == 'pending'
+          && request.resource.data.appPackage is string
           && (
-            (request.resource.data.type in ['block_app', 'unblock_app']
-              && request.resource.data.appPackage is string)
+            request.resource.data.type in ['block_app', 'unblock_app']
             ||
             (request.resource.data.type == 'set_limit'
-              && request.resource.data.limitMinutes is int)
+              && request.resource.data.maxMinutes is int
+              && request.resource.data.maxMinutes > 0)
           );
 
-        // Child can only mark command handling fields.
+        // Child can only mark delivery/handling fields and cannot rewrite the command payload.
         allow update: if isChild(childUid)
           && request.resource.data.childUid == resource.data.childUid
           && request.resource.data.parentUid == resource.data.parentUid
           && request.resource.data.type == resource.data.type
+          && request.resource.data.status in ['handled', 'failed']
           && request.resource.data.diff(resource.data).changedKeys().hasOnly([
             'status',
             'handledAt',
@@ -125,7 +175,6 @@ service cloud.firestore {
     match /time_requests/{requestId} {
       allow create: if signedIn()
         && request.resource.data.childUid == request.auth.uid
-        && isAllowedRequestStatus(request.resource.data.status)
         && request.resource.data.status == 'pending';
 
       allow read: if signedIn()
@@ -161,27 +210,31 @@ service cloud.firestore {
     }
 
     match /pairing_codes/{code} {
-      // Parent creates code for themselves.
+      // Parent may only create a new pending code. Existing code documents are
+      // not parent-updatable, so a random-id collision is rejected rather than overwritten.
       allow create: if signedIn()
         && request.resource.data.parentUid == request.auth.uid
+        && request.resource.data.code == code
         && request.resource.data.status == 'pending';
 
-      // Parent can read/update their own pairing code.
-      allow read: if signedIn()
+      // A child may fetch a known pending code, but listing pairing codes is forbidden.
+      allow get: if signedIn()
         && (resource.data.parentUid == request.auth.uid || resource.data.status == 'pending');
+      allow list: if false;
 
-      allow update: if signedIn() && (
-        // Parent-maintained edits while still pending.
-        (resource.data.parentUid == request.auth.uid
-          && resource.data.status == 'pending'
-          && request.resource.data.parentUid == resource.data.parentUid)
-        ||
-        // Child redemption path: pending -> used.
-        (resource.data.status == 'pending'
-          && request.resource.data.status == 'used'
-          && request.resource.data.parentUid == resource.data.parentUid
-          && request.resource.data.usedByChildUid == request.auth.uid)
-      );
+      // Only the redeeming child may transition a pending code to used.
+      allow update: if signedIn()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'used'
+        && request.resource.data.parentUid == resource.data.parentUid
+        && request.resource.data.code == resource.data.code
+        && request.resource.data.usedByChildUid == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'usedByChildUid',
+          'usedAt',
+          'updatedAt'
+        ]);
 
       allow delete: if false;
     }
@@ -189,11 +242,11 @@ service cloud.firestore {
     match /parent_notifications/{notificationId} {
       allow read: if signedIn() && resource.data.parentUid == request.auth.uid;
 
-      // Optional safe create path for parent dashboard MVP.
+      // Parent-owned MVP notification creation only. Child-originated alerts
+      // should move through Cloud Functions in the next backend-hardening phase.
       allow create: if signedIn()
         && request.resource.data.parentUid == request.auth.uid;
 
-      // Parent can only set read flags.
       allow update: if signedIn()
         && resource.data.parentUid == request.auth.uid
         && request.resource.data.parentUid == resource.data.parentUid
@@ -211,7 +264,7 @@ service cloud.firestore {
         && resource.data.childUid is string
         && parentOwnsChild(resource.data.childUid);
 
-      // Admin SDK only (Cloud Functions) should write audit docs.
+      // Admin SDK only (Cloud Functions) writes audit docs.
       allow create, update, delete: if false;
     }
   }

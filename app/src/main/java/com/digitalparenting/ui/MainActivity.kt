@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.service.MonitoringService
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
 
@@ -18,30 +19,58 @@ class MainActivity : AppCompatActivity() {
 
         if (currentUser != null) {
             Log.d("CHILD_AUTH", "Existing authenticated user UID=${currentUser.uid}")
-            continueStartupFlow()
+            continueStartupFlow(currentUser.uid)
             return
         }
 
         auth.signInAnonymously()
             .addOnSuccessListener { result ->
-                val uid = result.user?.uid ?: "UNKNOWN"
+                val uid = result.user?.uid
+                if (uid.isNullOrBlank()) {
+                    showAuthFailure()
+                    return@addOnSuccessListener
+                }
+
                 Log.d("CHILD_AUTH", "Anonymous sign-in success UID=$uid")
-                continueStartupFlow()
+                continueStartupFlow(uid)
             }
             .addOnFailureListener { error ->
                 Log.e("CHILD_AUTH", "Anonymous sign-in failed", error)
-                Toast.makeText(
-                    this,
-                    "Authentication failed. Please relaunch the app.",
-                    Toast.LENGTH_LONG
-                ).show()
+                showAuthFailure()
             }
     }
 
-    private fun continueStartupFlow() {
-        Log.d("CHILD_AUTH", "MonitoringService starting after auth")
-        startForegroundService(Intent(this, MonitoringService::class.java))
-        startActivity(Intent(this, WelcomeActivity::class.java))
-        finish()
+    private fun continueStartupFlow(childUid: String) {
+        FirebaseFirestore.getInstance()
+            .collection("children")
+            .document(childUid)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val paired = snapshot.exists() && snapshot.getBoolean("paired") == true
+
+                if (paired) {
+                    Log.d("CHILD_AUTH", "Paired child detected; starting monitoring service")
+                    startForegroundService(Intent(this, MonitoringService::class.java))
+                    startActivity(Intent(this, HomeStatusActivity::class.java))
+                } else {
+                    Log.d("CHILD_AUTH", "Unpaired child detected; opening pairing flow")
+                    startActivity(Intent(this, WelcomeActivity::class.java))
+                }
+
+                finish()
+            }
+            .addOnFailureListener { error ->
+                Log.e("CHILD_AUTH", "Unable to resolve child pairing state", error)
+                startActivity(Intent(this, WelcomeActivity::class.java))
+                finish()
+            }
+    }
+
+    private fun showAuthFailure() {
+        Toast.makeText(
+            this,
+            "Authentication failed. Please relaunch the app.",
+            Toast.LENGTH_LONG
+        ).show()
     }
 }
