@@ -212,5 +212,10 @@ service cloud.firestore {
       // Admin SDK only (Cloud Functions) writes audit docs.
       allow create, update, delete: if false;
     }
+
+    // Server-only abuse-prevention state (for example pairing issuance throttles).
+    match /control_rate_limits/{rateLimitId} {
+      allow read, write: if false;
+    }
   }
 }
