@@ -5,12 +5,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAnonymousIdentity() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function isParentIdentity() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     function isParent(parentUid) {
-      return signedIn() && request.auth.uid == parentUid;
+      return isParentIdentity() && request.auth.uid == parentUid;
     }
 
     function isChild(childUid) {
-      return signedIn() && request.auth.uid == childUid;
+      return isAnonymousIdentity() && request.auth.uid == childUid;
     }
 
     function childDoc(childUid) {
@@ -18,9 +28,10 @@ service cloud.firestore {
     }
 
     function parentOwnsChild(childUid) {
-      return signedIn()
+      return isParentIdentity()
         && exists(/databases/$(database)/documents/children/$(childUid))
-        && childDoc(childUid).data.parentUid == request.auth.uid;
+        && childDoc(childUid).data.parentUid == request.auth.uid
+        && childDoc(childUid).data.paired == true;
     }
 
     match /parents/{parentUid} {
@@ -35,6 +46,7 @@ service cloud.firestore {
 
       // Child-owned status and health updates only. Pairing ownership cannot be changed.
       allow update: if isChild(childUid)
+        && resource.data.paired == true
         && request.resource.data.parentUid == resource.data.parentUid
         && request.resource.data.pairingCode == resource.data.pairingCode
         && request.resource.data.paired == resource.data.paired
@@ -110,14 +122,18 @@ service cloud.firestore {
 
     match /usage_sessions/{childUid}/sessions/{sessionId} {
       allow read: if isChild(childUid) || parentOwnsChild(childUid);
-      allow create: if isChild(childUid);
+      allow create: if isChild(childUid)
+        && exists(/databases/$(database)/documents/children/$(childUid))
+        && childDoc(childUid).data.paired == true;
       allow update, delete: if false;
     }
 
     match /time_requests/{requestId} {
-      // Children can request bounded extra time only for themselves. Parent
-      // resolution is handled exclusively by the resolveTimeRequest callable.
-      allow create: if signedIn()
+      // Paired children can request bounded extra time only for themselves.
+      // Parent resolution is handled exclusively by resolveTimeRequest.
+      allow create: if isChild(request.resource.data.childUid)
+        && exists(/databases/$(database)/documents/children/$(request.auth.uid))
+        && childDoc(request.auth.uid).data.paired == true
         && request.resource.data.keys().hasAll([
           'childUid',
           'deviceName',
@@ -143,7 +159,6 @@ service cloud.firestore {
           'resolvedAt',
           'updatedAt'
         ])
-        && request.resource.data.childUid == request.auth.uid
         && request.resource.data.deviceName is string
         && request.resource.data.appName is string
         && request.resource.data.appPackage is string
@@ -155,16 +170,12 @@ service cloud.firestore {
         && request.resource.data.resolvedAt == null
         && request.resource.data.status == 'pending';
 
-      allow read: if signedIn()
-        && (
-          resource.data.childUid == request.auth.uid
-          || parentOwnsChild(resource.data.childUid)
-        );
+      allow read: if isChild(resource.data.childUid)
+        || parentOwnsChild(resource.data.childUid);
 
       // Child can mark a server-approved request as applied after updating its
       // local limit. No other client-side status transition is accepted.
-      allow update: if signedIn()
-        && resource.data.childUid == request.auth.uid
+      allow update: if isChild(resource.data.childUid)
         && resource.data.status == 'approved'
         && request.resource.data.status == 'applied'
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
@@ -180,20 +191,19 @@ service cloud.firestore {
       // Pairing code issuance and redemption are Admin SDK operations performed
       // by callable functions. A parent may read a code it owns so the dashboard
       // can show live pending/used state; codes can never be listed by clients.
-      allow get: if signedIn() && resource.data.parentUid == request.auth.uid;
+      allow get: if isParent(resource.data.parentUid);
       allow list: if false;
       allow create, update, delete: if false;
     }
 
     match /parent_notifications/{notificationId} {
-      allow read: if signedIn() && resource.data.parentUid == request.auth.uid;
+      allow read: if isParent(resource.data.parentUid);
 
       // Notifications are created by Cloud Functions. Parents may only change
       // their own read-state metadata.
       allow create: if false;
 
-      allow update: if signedIn()
-        && resource.data.parentUid == request.auth.uid
+      allow update: if isParent(resource.data.parentUid)
         && request.resource.data.parentUid == resource.data.parentUid
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           'read',
@@ -205,8 +215,7 @@ service cloud.firestore {
     }
 
     match /command_audit/{auditId} {
-      allow read: if signedIn()
-        && resource.data.childUid is string
+      allow read: if resource.data.childUid is string
         && parentOwnsChild(resource.data.childUid);
 
       // Admin SDK only (Cloud Functions) writes audit docs.
