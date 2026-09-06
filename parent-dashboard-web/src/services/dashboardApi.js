@@ -22,9 +22,17 @@ const safeSnapshotListener = (tagLogger, sourceName, q, callback, onError) => on
 const timestampToMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || 0
 
 export const listenChildren = (parentUid, callback, onError) => {
-  const q = parentUid
-    ? query(collection(db, 'children'), where('parentUid', '==', parentUid), orderBy('updatedAt', 'desc'))
-    : query(collection(db, 'children'), orderBy('updatedAt', 'desc'))
+  if (!parentUid) {
+    callback([])
+    return () => {}
+  }
+
+  const q = query(
+    collection(db, 'children'),
+    where('parentUid', '==', parentUid),
+    where('paired', '==', true),
+    orderBy('updatedAt', 'desc'),
+  )
   return safeSnapshotListener(logParentChildren, 'children', q, callback, onError)
 }
 
