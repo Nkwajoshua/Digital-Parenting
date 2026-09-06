@@ -2,7 +2,7 @@
   "name": "digital-parenting-functions",
   "version": "1.0.0",
   "private": true,
-  "main": "index.js",
+  "main": "entrypoint.js",
   "engines": {
     "node": "20"
   },
@@ -10,7 +10,7 @@
     "lint": "echo \"No lint configured\"",
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
-    "check": "node --check index.js"
+    "check": "node --check index.js && node --check callables.js && node --check entrypoint.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",
