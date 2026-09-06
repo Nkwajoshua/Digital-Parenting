@@ -1,4 +1,4 @@
-import { collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore'
+import { Timestamp, collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from './firebase'
 import { logParentChildren, logParentCommand, logParentRequest } from './logger'
@@ -19,7 +19,20 @@ const safeSnapshotListener = (tagLogger, sourceName, q, callback, onError) => on
   tagLogger(`${sourceName} snapshot updated`, { count: snap.size })
 }, (error) => { tagLogger(`${sourceName} listener failed`, { code: error.code, message: error.message }); onError?.(error) })
 
-const timestampToMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || 0
+const timestampToMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || (typeof value === 'number' ? value : 0)
+const asTimestamp = (value) => {
+  if (value?.toDate) return value
+  if (typeof value === 'number' && Number.isFinite(value)) return Timestamp.fromMillis(value)
+  return null
+}
+const normalizeUsageSession = (row) => ({
+  ...row,
+  startTime: asTimestamp(row.startTime),
+  endTime: asTimestamp(row.endTime),
+  duration: Number.isFinite(Number(row.durationSeconds))
+    ? Math.max(0, Math.round(Number(row.durationSeconds)))
+    : Math.max(0, Math.round(Number(row.duration || 0) / 1000)),
+})
 
 export const listenChildren = (parentUid, callback, onError) => {
   if (!parentUid) {
@@ -129,4 +142,10 @@ export const denyTimeRequest = async (requestId) => {
   return result.data
 }
 
-export const listenRecentUsageSessions = (childUid, callback, onError) => safeSnapshotListener(logParentChildren, 'usage_sessions', query(collection(db, 'usage_sessions', childUid, 'sessions'), orderBy('startTime', 'desc'), limit(10)), callback, onError)
+export const listenRecentUsageSessions = (childUid, callback, onError) => safeSnapshotListener(
+  logParentChildren,
+  'usage_sessions',
+  query(collection(db, 'usage_sessions', childUid, 'sessions'), orderBy('startTime', 'desc'), limit(10)),
+  (rows) => callback(rows.map(normalizeUsageSession)),
+  onError,
+)
