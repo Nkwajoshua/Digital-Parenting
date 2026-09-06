@@ -79,13 +79,11 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Restore wrapper for CI if missing
+      - name: Note wrapper limitation
         run: |
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "::warning::gradle-wrapper.jar is not committed; regenerating Gradle 8.5 wrapper for this CI run."
-            gradle wrapper --gradle-version 8.5
+            echo "::warning::gradle-wrapper.jar is not committed. CI will compile with provisioned Gradle 8.5 instead of ./gradlew."
           fi
-          chmod +x ./gradlew
 
       - name: Assemble debug APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: gradle --no-daemon assembleDebug
