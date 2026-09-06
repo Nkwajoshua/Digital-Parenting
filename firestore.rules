@@ -210,8 +210,8 @@ service cloud.firestore {
     }
 
     match /pairing_codes/{code} {
-      // Parent creates a short-lived code for themselves. The document id and
-      // embedded code must agree so clients cannot create ambiguous records.
+      // Parent may only create a new pending code. Existing code documents are
+      // not parent-updatable, so a random-id collision is rejected rather than overwritten.
       allow create: if signedIn()
         && request.resource.data.parentUid == request.auth.uid
         && request.resource.data.code == code
@@ -222,25 +222,19 @@ service cloud.firestore {
         && (resource.data.parentUid == request.auth.uid || resource.data.status == 'pending');
       allow list: if false;
 
-      allow update: if signedIn() && (
-        // Parent-maintained edits while still pending.
-        (resource.data.parentUid == request.auth.uid
-          && resource.data.status == 'pending'
-          && request.resource.data.parentUid == resource.data.parentUid)
-        ||
-        // Child redemption path: pending -> used, with ownership fields immutable.
-        (resource.data.status == 'pending'
-          && request.resource.data.status == 'used'
-          && request.resource.data.parentUid == resource.data.parentUid
-          && request.resource.data.code == resource.data.code
-          && request.resource.data.usedByChildUid == request.auth.uid
-          && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'status',
-            'usedByChildUid',
-            'usedAt',
-            'updatedAt'
-          ]))
-      );
+      // Only the redeeming child may transition a pending code to used.
+      allow update: if signedIn()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'used'
+        && request.resource.data.parentUid == resource.data.parentUid
+        && request.resource.data.code == resource.data.code
+        && request.resource.data.usedByChildUid == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'usedByChildUid',
+          'usedAt',
+          'updatedAt'
+        ]);
 
       allow delete: if false;
     }
