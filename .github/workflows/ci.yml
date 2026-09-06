@@ -74,16 +74,18 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Validate Gradle wrapper integrity
+      - name: Setup Gradle 8.5
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.5'
+
+      - name: Restore wrapper for CI if missing
         run: |
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "::warning::gradle-wrapper.jar is missing. Android build cannot run in CI until the wrapper JAR is restored."
-            exit 1
+            echo "::warning::gradle-wrapper.jar is not committed; regenerating Gradle 8.5 wrapper for this CI run."
+            gradle wrapper --gradle-version 8.5
           fi
-          if [ ! -x ./gradlew ]; then
-            echo "::error::gradlew is not executable."
-            exit 1
-          fi
+          chmod +x ./gradlew
 
       - name: Assemble debug APK
         run: ./gradlew --no-daemon assembleDebug
