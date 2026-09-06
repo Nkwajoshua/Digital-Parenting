@@ -53,14 +53,21 @@ exports.cleanExpiredPairingCodes = onSchedule('every 5 minutes', async () => {
       const chunk = chunks[i]
       try {
         const result = await db.runTransaction(async (tx) => {
+          // Firestore transactions require every read to happen before the first
+          // write. Read the whole chunk first, then decide which docs to expire.
+          const currentSnaps = await Promise.all(chunk.map((doc) => tx.get(doc.ref)))
           let chunkExpired = 0
           let chunkSkipped = 0
 
-          for (const doc of chunk) {
-            const currentSnap = await tx.get(doc.ref)
+          for (let index = 0; index < chunk.length; index += 1) {
+            const doc = chunk[index]
+            const currentSnap = currentSnaps[index]
             const current = currentSnap.data() || {}
+            const expiresAtMillis = current.expiresAt?.toMillis?.() || 0
 
-            if (current.status !== 'pending') {
+            // Re-check both state and expiry inside the transaction in case the
+            // document changed after the initial query.
+            if (current.status !== 'pending' || expiresAtMillis <= 0 || expiresAtMillis >= now.toMillis()) {
               chunkSkipped += 1
               continue
             }

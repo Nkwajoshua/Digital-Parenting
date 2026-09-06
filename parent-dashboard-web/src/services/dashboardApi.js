@@ -1,5 +1,6 @@
-import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
-import { db } from './firebase'
+import { Timestamp, collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from './firebase'
 import { logParentChildren, logParentCommand, logParentRequest } from './logger'
 
 export const ALERT_SEVERITY = Object.freeze({
@@ -8,18 +9,43 @@ export const ALERT_SEVERITY = Object.freeze({
   CRITICAL: 'critical',
 })
 
+const createPairingCodeCallable = httpsCallable(functions, 'createPairingCode')
+const sendCommandCallable = httpsCallable(functions, 'sendCommand')
+const resolveTimeRequestCallable = httpsCallable(functions, 'resolveTimeRequest')
+
 const safeSnapshotListener = (tagLogger, sourceName, q, callback, onError) => onSnapshot(q, (snap) => {
   if ('docs' in snap) callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
   else callback(snap.exists() ? { id: snap.id, ...snap.data() } : null)
   tagLogger(`${sourceName} snapshot updated`, { count: snap.size })
 }, (error) => { tagLogger(`${sourceName} listener failed`, { code: error.code, message: error.message }); onError?.(error) })
 
-const timestampToMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || 0
+const timestampToMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || (typeof value === 'number' ? value : 0)
+const asTimestamp = (value) => {
+  if (value?.toDate) return value
+  if (typeof value === 'number' && Number.isFinite(value)) return Timestamp.fromMillis(value)
+  return null
+}
+const normalizeUsageSession = (row) => ({
+  ...row,
+  startTime: asTimestamp(row.startTime),
+  endTime: asTimestamp(row.endTime),
+  duration: Number.isFinite(Number(row.durationSeconds))
+    ? Math.max(0, Math.round(Number(row.durationSeconds)))
+    : Math.max(0, Math.round(Number(row.duration || 0) / 1000)),
+})
 
 export const listenChildren = (parentUid, callback, onError) => {
-  const q = parentUid
-    ? query(collection(db, 'children'), where('parentUid', '==', parentUid), orderBy('updatedAt', 'desc'))
-    : query(collection(db, 'children'), orderBy('updatedAt', 'desc'))
+  if (!parentUid) {
+    callback([])
+    return () => {}
+  }
+
+  const q = query(
+    collection(db, 'children'),
+    where('parentUid', '==', parentUid),
+    where('paired', '==', true),
+    orderBy('updatedAt', 'desc'),
+  )
   return safeSnapshotListener(logParentChildren, 'children', q, callback, onError)
 }
 
@@ -31,9 +57,6 @@ export const listenPendingTimeRequests = (childUids, callback, onError) => {
     return () => {}
   }
 
-  // Firestore security rules are not client-side filters. Query each child UID
-  // explicitly so every result set is provably within the signed-in parent's
-  // authorization boundary, then merge the authorized snapshots locally.
   const rowsByChild = new Map()
   const emitMergedRows = () => {
     const rows = [...rowsByChild.values()]
@@ -73,86 +96,56 @@ export const listenParentNotifications = (parentUid, callback, onError) => {
 
 export const markParentNotificationRead = async (id) => updateDoc(doc(db, 'parent_notifications', id), { read: true })
 
-const generatePairingCode = () => {
-  const values = new Uint32Array(1)
-  window.crypto.getRandomValues(values)
-  return String(100000 + (values[0] % 900000))
-}
-
 export const createPairingCode = async (parentUid) => {
   if (!parentUid) throw new Error('Parent authentication is required')
-
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
-  let lastError = null
-
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const code = generatePairingCode()
-
-    try {
-      await setDoc(doc(db, 'pairing_codes', code), {
-        code,
-        parentUid,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        expiresAt,
-        usedByChildUid: null,
-        usedAt: null,
-      })
-      return { code, expiresAt }
-    } catch (error) {
-      lastError = error
-      // Pairing-code documents are parent-create-only. A generated id that is
-      // already occupied is therefore rejected as an update; retry with a new id.
-      if (error?.code !== 'permission-denied') throw error
-    }
-  }
-
-  throw lastError || new Error('Unable to allocate a pairing code. Please try again.')
+  const result = await createPairingCodeCallable({})
+  const code = result.data?.code
+  const expiresAtMillis = result.data?.expiresAtMillis
+  if (!code || !expiresAtMillis) throw new Error('Pairing service returned an invalid response')
+  return { code, expiresAt: new Date(expiresAtMillis) }
 }
 
 export const listenPairingCode = (code, callback, onError) => safeSnapshotListener(logParentChildren, 'pairing_code', doc(db, 'pairing_codes', code), callback, onError)
 
 export const listenRecentCommands = (childUid, callback, onError) => safeSnapshotListener(logParentCommand, 'commands', query(collection(db, 'children', childUid, 'commands'), orderBy('createdAt', 'desc'), limit(10)), callback, onError)
 
-const commandEnvelope = (parentUid, childUid, type, severity) => ({
-  parentUid,
+const sendCommand = async (childUid, type, payload) => {
+  const result = await sendCommandCallable({ childUid, type, ...payload })
+  return result.data
+}
+
+export const sendBlockAppCommand = (_parentUid, childUid, appPackage, appName) => sendCommand(
   childUid,
-  type,
-  status: 'pending',
-  severity,
-  createdAt: serverTimestamp(),
-})
-
-export const sendBlockAppCommand = (parentUid, childUid, appPackage, appName) => addDoc(
-  collection(db, 'children', childUid, 'commands'),
-  {
-    ...commandEnvelope(parentUid, childUid, 'block_app', ALERT_SEVERITY.WARNING),
-    appPackage,
-    appName,
-    reason: 'Blocked by parent',
-  },
+  'block_app',
+  { appPackage, appName, reason: 'Blocked by parent' },
 )
 
-export const sendUnblockAppCommand = (parentUid, childUid, appPackage, appName) => addDoc(
-  collection(db, 'children', childUid, 'commands'),
-  {
-    ...commandEnvelope(parentUid, childUid, 'unblock_app', ALERT_SEVERITY.INFO),
-    appPackage,
-    appName,
-  },
+export const sendUnblockAppCommand = (_parentUid, childUid, appPackage, appName) => sendCommand(
+  childUid,
+  'unblock_app',
+  { appPackage, appName },
 )
 
-export const sendSetLimitCommand = (parentUid, childUid, appPackage, appName, maxMinutes) => addDoc(
-  collection(db, 'children', childUid, 'commands'),
-  {
-    ...commandEnvelope(parentUid, childUid, 'set_limit', ALERT_SEVERITY.INFO),
-    appPackage,
-    appName,
-    maxMinutes,
-    enabled: true,
-  },
+export const sendSetLimitCommand = (_parentUid, childUid, appPackage, appName, maxMinutes) => sendCommand(
+  childUid,
+  'set_limit',
+  { appPackage, appName, maxMinutes, enabled: true },
 )
 
-export const approveTimeRequest = async (requestId, approvedMinutes) => updateDoc(doc(db, 'time_requests', requestId), { status: 'approved', parentResponse: 'approved', approvedMinutes, resolvedAt: serverTimestamp() })
-export const denyTimeRequest = async (requestId) => updateDoc(doc(db, 'time_requests', requestId), { status: 'denied', parentResponse: 'denied', approvedMinutes: 0, resolvedAt: serverTimestamp() })
-export const listenRecentUsageSessions = (childUid, callback, onError) => safeSnapshotListener(logParentChildren, 'usage_sessions', query(collection(db, 'usage_sessions', childUid, 'sessions'), orderBy('startTime', 'desc'), limit(10)), callback, onError)
+export const approveTimeRequest = async (requestId, approvedMinutes) => {
+  const result = await resolveTimeRequestCallable({ requestId, action: 'approve', approvedMinutes })
+  return result.data
+}
+
+export const denyTimeRequest = async (requestId) => {
+  const result = await resolveTimeRequestCallable({ requestId, action: 'deny' })
+  return result.data
+}
+
+export const listenRecentUsageSessions = (childUid, callback, onError) => safeSnapshotListener(
+  logParentChildren,
+  'usage_sessions',
+  query(collection(db, 'usage_sessions', childUid, 'sessions'), orderBy('startTime', 'desc'), limit(10)),
+  (rows) => callback(rows.map(normalizeUsageSession)),
+  onError,
+)

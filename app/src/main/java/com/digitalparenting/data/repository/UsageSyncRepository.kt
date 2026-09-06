@@ -1,20 +1,22 @@
 package com.digitalparenting.data.repository
 
+import android.util.Log
 import com.digitalparenting.data.local.AppSessionEntity
 import com.google.firebase.firestore.FirebaseFirestore
-import android.util.Log
 
 class UsageSyncRepository {
     private val firestore = FirebaseFirestore.getInstance()
 
     fun syncSession(childUid: String, session: AppSessionEntity) {
-        // TODO(parent-dashboard): Build usage and analytics views from usage_sessions/{childUid}/sessions in parent web/app.
         val sessionData = hashMapOf(
             "packageName" to session.packageName,
             "appName" to session.appName,
             "startTime" to session.startTime,
             "endTime" to session.endTime,
+            // Keep the legacy millisecond field for existing readers while
+            // publishing the canonical display/analytics unit explicitly.
             "duration" to session.duration,
+            "durationSeconds" to (session.duration / 1000L).coerceAtLeast(0L),
             "syncedAt" to System.currentTimeMillis()
         )
 
