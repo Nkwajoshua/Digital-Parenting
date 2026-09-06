@@ -115,10 +115,44 @@ service cloud.firestore {
     }
 
     match /time_requests/{requestId} {
-      // Children can request time for themselves. Parent resolution is handled
-      // exclusively by the resolveTimeRequest callable.
+      // Children can request bounded extra time only for themselves. Parent
+      // resolution is handled exclusively by the resolveTimeRequest callable.
       allow create: if signedIn()
+        && request.resource.data.keys().hasAll([
+          'childUid',
+          'deviceName',
+          'appName',
+          'appPackage',
+          'requestedMinutes',
+          'approvedMinutes',
+          'status',
+          'parentResponse',
+          'createdAt',
+          'resolvedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'childUid',
+          'deviceName',
+          'appName',
+          'appPackage',
+          'requestedMinutes',
+          'approvedMinutes',
+          'status',
+          'parentResponse',
+          'createdAt',
+          'resolvedAt',
+          'updatedAt'
+        ])
         && request.resource.data.childUid == request.auth.uid
+        && request.resource.data.deviceName is string
+        && request.resource.data.appName is string
+        && request.resource.data.appPackage is string
+        && request.resource.data.requestedMinutes is int
+        && request.resource.data.requestedMinutes > 0
+        && request.resource.data.requestedMinutes <= 240
+        && request.resource.data.approvedMinutes == null
+        && request.resource.data.parentResponse == null
+        && request.resource.data.resolvedAt == null
         && request.resource.data.status == 'pending';
 
       allow read: if signedIn()
