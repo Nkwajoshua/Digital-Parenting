@@ -75,7 +75,8 @@ Short-lived parent-issued pairing code redeemed by the child app.
 - `updatedAt` (timestamp, optional)
 
 ### Current MVP behavior
-- Parent web allocates the code with browser cryptographic randomness and a Firestore transaction that rejects collisions.
+- Parent web allocates codes with browser cryptographic randomness.
+- Pairing-code documents are parent-create-only. If a generated six-digit document id already exists, Firestore rejects the write as an unauthorized update and the client retries with another id.
 - Child redemption updates the pairing code and child record in one Firestore transaction.
 - Firestore rules forbid listing pairing codes; a child may only fetch a specific known pending code.
 
