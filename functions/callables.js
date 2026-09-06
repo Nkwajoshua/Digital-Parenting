@@ -10,6 +10,7 @@ const { FieldValue, Timestamp } = admin.firestore
 
 const PAIRING_TTL_MS = 15 * 60 * 1000
 const PAIRING_ATTEMPTS = 8
+const PAIRING_ISSUE_MIN_INTERVAL_MS = 10 * 1000
 const COMMAND_TYPES = new Set(['block_app', 'unblock_app', 'set_limit'])
 const ALERT_SEVERITIES = new Set(['info', 'warning', 'critical'])
 
@@ -65,7 +66,9 @@ async function assertParentOwnsChild(parentUid, childUid, tx = null) {
 
 exports.createPairingCode = onCall(async (request) => {
   const parentUid = requireParent(request)
-  const expiresAt = Timestamp.fromMillis(Date.now() + PAIRING_TTL_MS)
+  const nowMs = Date.now()
+  const expiresAt = Timestamp.fromMillis(nowMs + PAIRING_TTL_MS)
+  const rateRef = db.collection('control_rate_limits').doc(`pairing_${parentUid}`)
 
   for (let attempt = 0; attempt < PAIRING_ATTEMPTS; attempt += 1) {
     const code = String(crypto.randomInt(100000, 1000000))
@@ -73,7 +76,24 @@ exports.createPairingCode = onCall(async (request) => {
 
     try {
       await db.runTransaction(async (tx) => {
+        // Firestore transactions require all reads before writes. Rate-limit
+        // state and collision state are both read before either document changes.
+        const rateSnap = await tx.get(rateRef)
         const existing = await tx.get(ref)
+
+        const lastIssuedAt = rateSnap.exists ? rateSnap.get('lastIssuedAt') : null
+        const lastIssuedAtMs = lastIssuedAt?.toMillis?.() || 0
+        if (lastIssuedAtMs && nowMs - lastIssuedAtMs < PAIRING_ISSUE_MIN_INTERVAL_MS) {
+          const retryAfterSeconds = Math.max(
+            1,
+            Math.ceil((PAIRING_ISSUE_MIN_INTERVAL_MS - (nowMs - lastIssuedAtMs)) / 1000),
+          )
+          throw new HttpsError(
+            'resource-exhausted',
+            `Please wait ${retryAfterSeconds} seconds before generating another pairing code.`,
+          )
+        }
+
         if (existing.exists) throw new Error('PAIRING_CODE_COLLISION')
 
         tx.set(ref, {
@@ -86,15 +106,23 @@ exports.createPairingCode = onCall(async (request) => {
           usedByChildUid: null,
           usedAt: null,
         })
+
+        tx.set(rateRef, {
+          parentUid,
+          action: 'createPairingCode',
+          lastIssuedAt: Timestamp.fromMillis(nowMs),
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true })
       })
 
       logger.info('[PAIRING] Server pairing code created.', { parentUid, code, attempt })
       return { code, expiresAtMillis: expiresAt.toMillis() }
     } catch (error) {
-      if (error?.message !== 'PAIRING_CODE_COLLISION') {
-        logger.error('[PAIRING] Failed to create pairing code.', { parentUid, error: error.message })
-        throw new HttpsError('internal', 'Unable to create a pairing code.')
-      }
+      if (error?.message === 'PAIRING_CODE_COLLISION') continue
+      if (error instanceof HttpsError) throw error
+
+      logger.error('[PAIRING] Failed to create pairing code.', { parentUid, error: error.message })
+      throw new HttpsError('internal', 'Unable to create a pairing code.')
     }
   }
 
@@ -190,6 +218,9 @@ exports.sendCommand = onCall(async (request) => {
     }
 
     if (type === 'set_limit') {
+      if (request.data?.enabled != null && typeof request.data.enabled !== 'boolean') {
+        throw new HttpsError('invalid-argument', 'enabled must be a boolean.')
+      }
       command.maxMinutes = positiveInt(request.data?.maxMinutes, 'maxMinutes', 1440)
       command.enabled = request.data?.enabled !== false
     }
