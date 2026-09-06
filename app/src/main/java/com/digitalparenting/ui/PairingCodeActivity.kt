@@ -1,6 +1,7 @@
 package com.digitalparenting.ui
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.InputFilter
 import android.widget.Button
@@ -70,6 +71,9 @@ class PairingCodeActivity : AppCompatActivity() {
                     "paired" to true,
                     "pairedAt" to FieldValue.serverTimestamp(),
                     "pairingCode" to code,
+                    "deviceName" to "${Build.MANUFACTURER} ${Build.MODEL}",
+                    "platform" to "android",
+                    "monitoringActive" to false,
                     "updatedAt" to FieldValue.serverTimestamp()
                 ),
                 SetOptions.merge()
