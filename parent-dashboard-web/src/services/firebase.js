@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from 'firebase/app'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
+import { getFunctions } from 'firebase/functions'
 import { getMessaging, isSupported } from 'firebase/messaging'
 import { logParentFirebase } from './logger'
 
@@ -22,6 +23,7 @@ if (missingEnv.length > 0) {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 export const db = getFirestore(app)
 export const auth = getAuth(app)
+export const functions = getFunctions(app)
 
 let diagnosticsInitialized = false
 export const runFirebaseConnectionDiagnostics = () => {
@@ -51,7 +53,6 @@ export const runFirebaseConnectionDiagnostics = () => {
     logParentFirebase('Auth state listener failed', { error })
   })
 }
-
 
 export const getWebMessaging = async () => {
   try {
