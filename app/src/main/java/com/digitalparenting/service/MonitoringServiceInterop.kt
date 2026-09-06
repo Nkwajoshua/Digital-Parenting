@@ -1,8 +1,6 @@
 package com.digitalparenting.service
 
-import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentReference
 
 /**
  * Transitional interop for the legacy MonitoringService.
@@ -12,7 +10,11 @@ import com.google.firebase.firestore.DocumentReference
  * MonitoringService is decomposed into identity, heartbeat, sync, command,
  * and enforcement components.
  */
-internal typealias BuildConfig = com.digitalparenting.BuildConfig
+internal object BuildConfig {
+    // Mirrors app/build.gradle for this stabilization branch. The service
+    // refactor will replace this with an injected app-version provider.
+    const val VERSION_NAME = "1.0"
+}
 
 /**
  * MonitoringService currently references the authenticated child UID as a
@@ -25,14 +27,16 @@ internal val MonitoringService.childUid: String
     }
 
 /**
- * Firestore's Java update(Map<String, Any>) overload does not accept Kotlin's
- * Map<String, Any?>. Omit unknown nullable telemetry fields instead of forcing
- * a bogus value into the child heartbeat document.
+ * The legacy service builds Firestore update payloads with nullable telemetry
+ * values (notably battery percentage), while the Java Firestore update(Map)
+ * overload expects non-null Any values from Kotlin. This same-package overload
+ * is a temporary compatibility bridge: nullable telemetry is omitted instead
+ * of writing a fabricated value.
  */
-internal fun DocumentReference.update(fields: Map<String, Any?>): Task<Void> {
-    val nonNullFields = HashMap<String, Any>()
-    fields.forEach { (key, value) ->
-        if (value != null) nonNullFields[key] = value
+internal fun mapOf(vararg pairs: Pair<String, Any?>): MutableMap<String, Any> {
+    val result = linkedMapOf<String, Any>()
+    pairs.forEach { (key, value) ->
+        if (value != null) result[key] = value
     }
-    return update(nonNullFields)
+    return result
 }
