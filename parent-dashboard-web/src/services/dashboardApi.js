@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
+import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, updateDoc, where } from 'firebase/firestore'
 import { db } from './firebase'
 import { logParentChildren, logParentCommand, logParentRequest } from './logger'
 
@@ -34,21 +34,88 @@ export const listenParentNotifications = (parentUid, callback, onError) => {
 
 export const markParentNotificationRead = async (id) => updateDoc(doc(db, 'parent_notifications', id), { read: true })
 
+const generatePairingCode = () => {
+  const values = new Uint32Array(1)
+  window.crypto.getRandomValues(values)
+  return String(100000 + (values[0] % 900000))
+}
+
 export const createPairingCode = async (parentUid) => {
-  const code = String(Math.floor(100000 + Math.random() * 900000))
+  if (!parentUid) throw new Error('Parent authentication is required')
+
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
-  await setDoc(doc(db, 'pairing_codes', code), {
-    code, parentUid, status: 'pending', createdAt: serverTimestamp(), expiresAt, usedByChildUid: null, usedAt: null,
-  })
-  return { code, expiresAt }
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = generatePairingCode()
+    const codeRef = doc(db, 'pairing_codes', code)
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const existing = await transaction.get(codeRef)
+        if (existing.exists()) throw new Error('PAIRING_CODE_COLLISION')
+
+        transaction.set(codeRef, {
+          code,
+          parentUid,
+          status: 'pending',
+          createdAt: serverTimestamp(),
+          expiresAt,
+          usedByChildUid: null,
+          usedAt: null,
+        })
+      })
+      return { code, expiresAt }
+    } catch (error) {
+      if (error?.message !== 'PAIRING_CODE_COLLISION') throw error
+    }
+  }
+
+  throw new Error('Unable to allocate a pairing code. Please try again.')
 }
 
 export const listenPairingCode = (code, callback, onError) => safeSnapshotListener(logParentChildren, 'pairing_code', doc(db, 'pairing_codes', code), callback, onError)
 
 export const listenRecentCommands = (childUid, callback, onError) => safeSnapshotListener(logParentCommand, 'commands', query(collection(db, 'children', childUid, 'commands'), orderBy('createdAt', 'desc'), limit(10)), callback, onError)
-export const sendBlockAppCommand = (childUid, appPackage, appName) => addDoc(collection(db, 'children', childUid, 'commands'), { type: 'block_app', appPackage, appName, reason: 'Blocked by parent', status: 'pending', severity: ALERT_SEVERITY.WARNING, createdAt: serverTimestamp() })
-export const sendUnblockAppCommand = (childUid, appPackage, appName) => addDoc(collection(db, 'children', childUid, 'commands'), { type: 'unblock_app', appPackage, appName, status: 'pending', severity: ALERT_SEVERITY.INFO, createdAt: serverTimestamp() })
-export const sendSetLimitCommand = (childUid, appPackage, appName, maxMinutes) => addDoc(collection(db, 'children', childUid, 'commands'), { type: 'set_limit', appPackage, appName, maxMinutes, enabled: true, status: 'pending', severity: ALERT_SEVERITY.INFO, createdAt: serverTimestamp() })
+
+const commandEnvelope = (parentUid, childUid, type, severity) => ({
+  parentUid,
+  childUid,
+  type,
+  status: 'pending',
+  severity,
+  createdAt: serverTimestamp(),
+})
+
+export const sendBlockAppCommand = (parentUid, childUid, appPackage, appName) => addDoc(
+  collection(db, 'children', childUid, 'commands'),
+  {
+    ...commandEnvelope(parentUid, childUid, 'block_app', ALERT_SEVERITY.WARNING),
+    appPackage,
+    appName,
+    reason: 'Blocked by parent',
+  },
+)
+
+export const sendUnblockAppCommand = (parentUid, childUid, appPackage, appName) => addDoc(
+  collection(db, 'children', childUid, 'commands'),
+  {
+    ...commandEnvelope(parentUid, childUid, 'unblock_app', ALERT_SEVERITY.INFO),
+    appPackage,
+    appName,
+  },
+)
+
+export const sendSetLimitCommand = (parentUid, childUid, appPackage, appName, maxMinutes) => addDoc(
+  collection(db, 'children', childUid, 'commands'),
+  {
+    ...commandEnvelope(parentUid, childUid, 'set_limit', ALERT_SEVERITY.INFO),
+    appPackage,
+    appName,
+    maxMinutes,
+    enabled: true,
+  },
+)
+
 export const approveTimeRequest = async (requestId, approvedMinutes) => updateDoc(doc(db, 'time_requests', requestId), { status: 'approved', parentResponse: 'approved', approvedMinutes, resolvedAt: serverTimestamp() })
 export const denyTimeRequest = async (requestId) => updateDoc(doc(db, 'time_requests', requestId), { status: 'denied', parentResponse: 'denied', approvedMinutes: 0, resolvedAt: serverTimestamp() })
 export const listenRecentUsageSessions = (childUid, callback, onError) => safeSnapshotListener(logParentChildren, 'usage_sessions', query(collection(db, 'usage_sessions', childUid, 'sessions'), orderBy('startTime', 'desc'), limit(10)), callback, onError)
