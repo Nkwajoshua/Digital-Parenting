@@ -12,6 +12,7 @@
       "collectionGroup": "time_requests",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "childUid", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
