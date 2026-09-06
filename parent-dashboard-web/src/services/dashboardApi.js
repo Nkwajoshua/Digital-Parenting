@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, updateDoc, where } from 'firebase/firestore'
+import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
 import { db } from './firebase'
 import { logParentChildren, logParentCommand, logParentRequest } from './logger'
 
@@ -44,33 +44,31 @@ export const createPairingCode = async (parentUid) => {
   if (!parentUid) throw new Error('Parent authentication is required')
 
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
+  let lastError = null
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const code = generatePairingCode()
-    const codeRef = doc(db, 'pairing_codes', code)
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const existing = await transaction.get(codeRef)
-        if (existing.exists()) throw new Error('PAIRING_CODE_COLLISION')
-
-        transaction.set(codeRef, {
-          code,
-          parentUid,
-          status: 'pending',
-          createdAt: serverTimestamp(),
-          expiresAt,
-          usedByChildUid: null,
-          usedAt: null,
-        })
+      await setDoc(doc(db, 'pairing_codes', code), {
+        code,
+        parentUid,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        expiresAt,
+        usedByChildUid: null,
+        usedAt: null,
       })
       return { code, expiresAt }
     } catch (error) {
-      if (error?.message !== 'PAIRING_CODE_COLLISION') throw error
+      lastError = error
+      // Pairing-code documents are parent-create-only. A generated id that is
+      // already occupied is therefore rejected as an update; retry with a new id.
+      if (error?.code !== 'permission-denied') throw error
     }
   }
 
-  throw new Error('Unable to allocate a pairing code. Please try again.')
+  throw lastError || new Error('Unable to allocate a pairing code. Please try again.')
 }
 
 export const listenPairingCode = (code, callback, onError) => safeSnapshotListener(logParentChildren, 'pairing_code', doc(db, 'pairing_codes', code), callback, onError)
