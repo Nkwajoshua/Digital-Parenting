@@ -21,11 +21,22 @@ function requireAuth(request) {
   return request.auth.uid
 }
 
+function signInProvider(request) {
+  return request.auth?.token?.firebase?.sign_in_provider || null
+}
+
 function requireParent(request) {
   const uid = requireAuth(request)
-  const provider = request.auth?.token?.firebase?.sign_in_provider
-  if (provider === 'anonymous') {
+  if (signInProvider(request) === 'anonymous') {
     throw new HttpsError('permission-denied', 'A parent account is required.')
+  }
+  return uid
+}
+
+function requireChild(request) {
+  const uid = requireAuth(request)
+  if (signInProvider(request) !== 'anonymous') {
+    throw new HttpsError('permission-denied', 'A child device identity is required.')
   }
   return uid
 }
@@ -76,8 +87,6 @@ exports.createPairingCode = onCall(async (request) => {
 
     try {
       await db.runTransaction(async (tx) => {
-        // Firestore transactions require all reads before writes. Rate-limit
-        // state and collision state are both read before either document changes.
         const rateSnap = await tx.get(rateRef)
         const existing = await tx.get(ref)
 
@@ -130,7 +139,7 @@ exports.createPairingCode = onCall(async (request) => {
 })
 
 exports.redeemPairingCode = onCall(async (request) => {
-  const childUid = requireAuth(request)
+  const childUid = requireChild(request)
   const code = cleanString(request.data?.code, 'code', { max: 6 })
   if (!/^\d{6}$/.test(code)) {
     throw new HttpsError('invalid-argument', 'Pairing code must contain exactly six digits.')
@@ -286,7 +295,7 @@ exports.resolveTimeRequest = onCall(async (request) => {
 })
 
 exports.reportChildSecurityAlert = onCall(async (request) => {
-  const childUid = requireAuth(request)
+  const childUid = requireChild(request)
   const type = cleanString(request.data?.type, 'type', { max: 80 })
   const severity = cleanString(request.data?.severity || 'warning', 'severity', { max: 20 })
   const title = cleanString(request.data?.title, 'title', { max: 120 })
