@@ -11,14 +11,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.FirebaseFunctionsException
 
 class PairingCodeActivity : AppCompatActivity() {
 
     private lateinit var pairingCodeInput: EditText
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private lateinit var linkButton: Button
+    private val functions by lazy { FirebaseFunctions.getInstance() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,12 +26,13 @@ class PairingCodeActivity : AppCompatActivity() {
 
         pairingCodeInput = findViewById(R.id.etPairingCode)
         pairingCodeInput.filters = arrayOf(InputFilter.LengthFilter(6))
+        linkButton = findViewById(R.id.btnLinkDevice)
 
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
 
-        findViewById<Button>(R.id.btnLinkDevice).setOnClickListener {
+        linkButton.setOnClickListener {
             val code = pairingCodeInput.text.toString().trim()
-            if (code.length != 6) {
+            if (!code.matches(Regex("^\\d{6}$"))) {
                 Toast.makeText(this, "Enter a valid 6-digit pairing code", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
@@ -46,61 +47,35 @@ class PairingCodeActivity : AppCompatActivity() {
             return
         }
 
-        val codeRef = firestore.collection("pairing_codes").document(code)
-        val childRef = firestore.collection("children").document(childUid)
+        linkButton.isEnabled = false
 
-        firestore.runTransaction { transaction ->
-            val snap = transaction.get(codeRef)
-            if (!snap.exists()) {
-                throw IllegalStateException("Pairing code not found")
+        val payload = mapOf(
+            "code" to code,
+            "deviceName" to "${Build.MANUFACTURER} ${Build.MODEL}",
+            "platform" to "android"
+        )
+
+        functions
+            .getHttpsCallable("redeemPairingCode")
+            .call(payload)
+            .addOnSuccessListener {
+                val intent = Intent(this, PermissionsSetupActivity::class.java)
+                intent.putExtra(PermissionsSetupActivity.EXTRA_STEP, 1)
+                startActivity(intent)
+                finish()
             }
-
-            val status = snap.getString("status") ?: ""
-            val expiresAt = snap.getTimestamp("expiresAt")
-            val parentUid = snap.getString("parentUid")
-            val expired = expiresAt == null || expiresAt.toDate().time <= System.currentTimeMillis()
-
-            if (status != "pending" || expired || parentUid.isNullOrBlank()) {
-                throw IllegalStateException("Pairing code invalid or expired")
+            .addOnFailureListener { error ->
+                linkButton.isEnabled = true
+                val functionsError = error as? FirebaseFunctionsException
+                val message = when (functionsError?.code) {
+                    FirebaseFunctionsException.Code.NOT_FOUND -> "Pairing code not found"
+                    FirebaseFunctionsException.Code.DEADLINE_EXCEEDED -> "Pairing code has expired"
+                    FirebaseFunctionsException.Code.FAILED_PRECONDITION -> functionsError.message ?: "Pairing code is no longer valid"
+                    FirebaseFunctionsException.Code.UNAUTHENTICATED -> "Child authentication missing"
+                    FirebaseFunctionsException.Code.PERMISSION_DENIED -> "Pairing is not allowed for this device"
+                    else -> "Pairing failed. Try again."
+                }
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
             }
-
-            transaction.set(
-                childRef,
-                mapOf(
-                    "parentUid" to parentUid,
-                    "paired" to true,
-                    "pairedAt" to FieldValue.serverTimestamp(),
-                    "pairingCode" to code,
-                    "deviceName" to "${Build.MANUFACTURER} ${Build.MODEL}",
-                    "platform" to "android",
-                    "monitoringActive" to false,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ),
-                SetOptions.merge()
-            )
-
-            transaction.update(
-                codeRef,
-                mapOf(
-                    "status" to "used",
-                    "usedByChildUid" to childUid,
-                    "usedAt" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            )
-
-            parentUid
-        }.addOnSuccessListener {
-            val intent = Intent(this, PermissionsSetupActivity::class.java)
-            intent.putExtra(PermissionsSetupActivity.EXTRA_STEP, 1)
-            startActivity(intent)
-        }.addOnFailureListener { error ->
-            val message = when (error.message) {
-                "Pairing code not found" -> "Pairing code not found"
-                "Pairing code invalid or expired" -> "Pairing code invalid or expired"
-                else -> "Pairing failed. Try again."
-            }
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        }
     }
 }
