@@ -129,13 +129,16 @@ Only a paired anonymous Child may create a request for its own UID. Parent clien
 ## 6) `usage_sessions/{childUid}/sessions/{sessionId}`
 Usage snapshots uploaded by the paired Child app.
 
-### Required/common fields
+### Current fields
 - `packageName` (string)
 - `appName` (string)
-- `startTime` (unix ms or timestamp according to uploader version)
-- `endTime` (unix ms or timestamp according to uploader version)
-- `duration` (number, seconds)
-- `syncedAt` (unix ms or timestamp)
+- `startTime` (unix milliseconds)
+- `endTime` (unix milliseconds)
+- `duration` (legacy duration in milliseconds, retained for backward compatibility)
+- `durationSeconds` (canonical non-negative integer duration in seconds for Parent clients/analytics; present on new uploads)
+- `syncedAt` (unix milliseconds)
+
+Parent clients normalize older rows that do not contain `durationSeconds` by deriving seconds from the legacy millisecond `duration` field. Numeric `startTime` and `endTime` values are converted to client-side Firestore `Timestamp` objects for display compatibility. This preserves existing stored history while establishing `durationSeconds` as the canonical unit for new parent-facing code.
 
 Only the paired Child may create its own sessions. The owning Parent and the Child may read them.
 
