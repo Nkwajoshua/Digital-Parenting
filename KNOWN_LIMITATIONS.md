@@ -1,11 +1,12 @@
 # Known Limitations
 
-- `gradle-wrapper.jar` must be restored locally or by a developer machine using `gradle wrapper --gradle-version 8.5` and committed with a normal Git client.
-- Android CI remains non-blocking (`continue-on-error: true`) until `gradle/wrapper/gradle-wrapper.jar` is restored and the Android build is proven green.
-- The `functions` package currently does not include a committed `package-lock.json`; dependency resolution is therefore less reproducible than `npm ci`-based installs. Functions CI is now blocking, but it still uses `npm install` until a lockfile is committed.
-- In restricted environments (including some Codespaces/policy-managed runners), npm registry access for packages such as `firebase-admin` may fail with HTTP 403, which blocks fresh dependency installs.
-- Firebase CLI is not guaranteed to be installed in every execution environment; emulator/deploy commands may fail unless `firebase-tools` is preinstalled.
-- Firestore rules behavior still depends on deployment target/project configuration; local file presence alone does not guarantee active enforcement.
-- Firestore authorization tests are still manual/scaffold-only; executable emulator-backed rules tests remain required before production release.
-- `MonitoringService.kt` still contains legacy status/control paths and should be decomposed after Android compilation is restored.
-- The Android app still targets API 34 and requires a dedicated API 36 / foreground-service lifecycle migration before Play release.
+- `gradle-wrapper.jar` is still not committed. CI currently provisions Gradle 8.5 explicitly and the Android `assembleDebug` job is a blocking, verified-green gate. The wrapper JAR should still be restored with a normal Git client for standard local reproducibility.
+- The `functions` package does not yet include a committed `package-lock.json`; Functions CI is blocking and runs syntax checks, but dependency resolution still uses `npm install` rather than deterministic `npm ci`.
+- Firestore authorization tests are still documented/manual rather than executable emulator-backed tests. The updated plan now covers both client rules and the callable control plane, but automated rules/function integration tests remain required before production release.
+- The Phase 2 callable control plane must be deployed together with its stricter Firestore rules. Deploying the rules before the new Functions/clients would intentionally disable legacy direct pairing, command creation, parent request resolution, and notification creation.
+- `MonitoringService.kt` remains oversized and still contains legacy code paths, including the obsolete top-level `children/{childUid}.blockApp` listener and a legacy whole-document child-status `.set()` attempt. The repaired rules make those paths ineffective, but the service should be decomposed and the dead paths removed.
+- Child permission/security alert code in the legacy `MonitoringService` still attempts a direct `parent_notifications` write. Phase 2 introduces `reportChildSecurityAlert`, but the legacy service must be switched to that callable during the runtime refactor for those alerts to reach the parent again under the stricter rules.
+- FCM token registration on the Android child remains incomplete, so push-assisted command/request delivery is not yet production-ready.
+- The Android app still targets API 34. A dedicated API 36 migration and long-running foreground-service lifecycle redesign are required before Play release.
+- The Android repository still builds a single Child-oriented APK; a separate Parent Android application has not yet been created. The Parent Web portal remains the existing parent control surface until the mobile split phase.
+- In restricted development environments, npm/Firebase CLI registry or tool access may still block local emulator/deploy commands even though GitHub CI can install and build the current packages.
