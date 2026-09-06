@@ -14,6 +14,8 @@ const safeSnapshotListener = (tagLogger, sourceName, q, callback, onError) => on
   tagLogger(`${sourceName} snapshot updated`, { count: snap.size })
 }, (error) => { tagLogger(`${sourceName} listener failed`, { code: error.code, message: error.message }); onError?.(error) })
 
+const timestampToMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || 0
+
 export const listenChildren = (parentUid, callback, onError) => {
   const q = parentUid
     ? query(collection(db, 'children'), where('parentUid', '==', parentUid), orderBy('updatedAt', 'desc'))
@@ -22,8 +24,45 @@ export const listenChildren = (parentUid, callback, onError) => {
 }
 
 export const listenPendingTimeRequests = (childUids, callback, onError) => {
-  const q = query(collection(db, 'time_requests'), where('status', '==', 'pending'), orderBy('createdAt', 'desc'))
-  return safeSnapshotListener(logParentRequest, 'time_requests_pending', q, (rows) => callback(childUids?.length ? rows.filter((r) => childUids.includes(r.childUid)) : rows), onError)
+  const uniqueChildUids = [...new Set((childUids || []).filter(Boolean))]
+
+  if (uniqueChildUids.length === 0) {
+    callback([])
+    return () => {}
+  }
+
+  // Firestore security rules are not client-side filters. Query each child UID
+  // explicitly so every result set is provably within the signed-in parent's
+  // authorization boundary, then merge the authorized snapshots locally.
+  const rowsByChild = new Map()
+  const emitMergedRows = () => {
+    const rows = [...rowsByChild.values()]
+      .flat()
+      .sort((a, b) => timestampToMillis(b.createdAt) - timestampToMillis(a.createdAt))
+    callback(rows)
+  }
+
+  const unsubscribers = uniqueChildUids.map((childUid) => {
+    const q = query(
+      collection(db, 'time_requests'),
+      where('childUid', '==', childUid),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc'),
+    )
+
+    return safeSnapshotListener(
+      logParentRequest,
+      `time_requests_pending:${childUid}`,
+      q,
+      (rows) => {
+        rowsByChild.set(childUid, rows)
+        emitMergedRows()
+      },
+      onError,
+    )
+  })
+
+  return () => unsubscribers.forEach((unsubscribe) => unsubscribe())
 }
 
 export const listenParentNotifications = (parentUid, callback, onError) => {
