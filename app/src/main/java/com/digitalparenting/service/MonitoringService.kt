@@ -20,11 +20,8 @@ import com.digitalparenting.data.UserProfile
 import com.digitalparenting.data.PredictionRecordEntity
 import com.digitalparenting.data.local.AppDatabase
 import com.digitalparenting.data.local.ProtectionIncidentEntity
-import android.app.ActivityManager
-import com.digitalparenting.data.repository.UsageSyncRepository
 import com.digitalparenting.data.local.AppLimitDao
 import com.digitalparenting.data.local.AppSessionDao
-import com.digitalparenting.data.local.AppSessionEntity
 import com.digitalparenting.data.local.AppUsageStats
 import com.digitalparenting.data.local.BehaviorRecordDao
 import com.digitalparenting.data.local.UserProfileDao
@@ -44,10 +41,16 @@ class MonitoringService : Service() {
 
     private var currentApp: String? = null
     private var currentSession: AppSession? = null
-    private var currentBlockedPackage: String? = null
-    private val usageSyncRepository = UsageSyncRepository()
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
     private val blockingUiController by lazy { ChildBlockingUiController(this) }
+    private val sessionRecorder by lazy {
+        ChildSessionRecorder(
+            context = this,
+            sessionDao = dao,
+            limitDao = limitDao,
+            onLimitExceeded = blockingUiController::launchBlockedScreen
+        )
+    }
     private val protectionHealthController by lazy {
         ChildProtectionHealthController(
             context = this,
@@ -131,7 +134,10 @@ class MonitoringService : Service() {
         blockingUiController.hideOverlay()
         currentSession?.let {
             it.endTime = System.currentTimeMillis()
-            logSession(it)
+            sessionRecorder.record(
+                it,
+                it.appName ?: getAppName(it.packageName)
+            )
         }
     }
 
@@ -204,7 +210,10 @@ class MonitoringService : Service() {
 
         currentSession?.let {
             it.endTime = now
-            logSession(it)
+            sessionRecorder.record(
+                it,
+                it.appName ?: getAppName(it.packageName)
+            )
         }
 
         currentSession = AppSession(
@@ -340,35 +349,6 @@ class MonitoringService : Service() {
         }
     }
 
-    private suspend fun isLimitExceeded(packageName: String): Boolean {
-        val limit = limitDao.getLimit(packageName) ?: return false
-
-        if (!limit.enabled) return false
-
-        val usageStats = dao.getUsageStats()
-        val usage = usageStats.find { it.packageName == packageName }
-
-        val maxMillis = limit.maxMinutes * 60_000L
-        return usage != null && usage.totalTime >= maxMillis
-    }
-
-    private suspend fun checkAndEnforceLimit(packageName: String, appName: String) {
-        val limit = limitDao.getLimit(packageName) ?: return
-
-        if (!limit.enabled) return
-
-        val todayUsage = dao.getUsageStats().firstOrNull { it.packageName == packageName }?.totalTime ?: 0L
-        val maxMillis = limit.maxMinutes * 60_000L
-
-        if (todayUsage >= maxMillis) {
-            currentBlockedPackage = packageName
-            blockingUiController.launchBlockedScreen(appName, packageName, "Daily limit exceeded")
-
-            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-            am.killBackgroundProcesses(packageName)
-        }
-    }
-
     private fun getAppName(packageName: String): String {
         return try {
             val pm = packageManager
@@ -376,29 +356,6 @@ class MonitoringService : Service() {
             pm.getApplicationLabel(appInfo).toString()
         } catch (e: Exception) {
             packageName
-        }
-    }
-
-    private fun logSession(session: AppSession) {
-        val duration = session.getDuration()
-
-        val entity = AppSessionEntity(
-            packageName = session.packageName,
-            appName = session.appName ?: getAppName(session.packageName),
-            startTime = session.startTime,
-            endTime = session.endTime,
-            duration = duration
-        )
-
-        CoroutineScope(Dispatchers.IO).launch {
-            dao.insertSession(entity)
-
-            checkAndEnforceLimit(entity.packageName, entity.appName ?: "Unknown App")
-
-            usageSyncRepository.syncSession(entity)
-
-            val durationSeconds = duration / 1000
-            println("DB: App: ${session.packageName} Start: ${formatTime(session.startTime)} End: ${formatTime(session.endTime)} Duration: ${durationSeconds}s")
         }
     }
 
@@ -432,10 +389,6 @@ class MonitoringService : Service() {
 
         println("Prediction outcome evaluated for record=$predictionId accurate=$wasAccurate actualMinutes=$actualOutcomeScore")
         println("Updated BehaviorPredictor metrics: ${behaviorPredictor.getMetrics()}")
-    }
-
-    private fun formatTime(timestamp: Long): String {
-        return java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
     }
 
     private fun restoreProtectionState() {
