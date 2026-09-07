@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import com.digitalparenting.data.BlockMode
+import com.digitalparenting.data.BlockStateManager
 
 data class BlockStateSnapshot(
     val blockedPackages: Set<String>,
@@ -42,6 +43,15 @@ object ProtectionStateManager {
             .apply()
     }
 
+    fun persistCurrentBlockState(context: Context) {
+        val (blockedPackages, blockModes) = BlockStateManager.snapshotState()
+        if (blockedPackages.isEmpty()) {
+            clearPersistedBlockState(context)
+        } else {
+            persistBlockState(context, blockedPackages, blockModes)
+        }
+    }
+
     fun restoreBlockState(context: Context): BlockStateSnapshot {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val blockedValue = prefs.getString(KEY_BLOCKED_PACKAGES, "") ?: ""
@@ -68,6 +78,12 @@ object ProtectionStateManager {
             .toMap()
 
         return BlockStateSnapshot(blockedPackages, blockModes)
+    }
+
+    fun hydrateBlockState(context: Context): BlockStateSnapshot {
+        val snapshot = restoreBlockState(context)
+        BlockStateManager.replaceState(snapshot.blockedPackages, snapshot.blockModes)
+        return snapshot
     }
 
     fun clearPersistedBlockState(context: Context) {
