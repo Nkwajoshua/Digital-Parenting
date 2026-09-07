@@ -5,10 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.*
 import androidx.core.app.NotificationCompat
-import android.app.usage.UsageStatsManager
 import com.digitalparenting.util.NotificationHelper
 import com.digitalparenting.util.ProtectionStateManager
-import android.app.usage.UsageEvents
 import com.digitalparenting.data.AppSession
 import com.digitalparenting.data.BehaviorAnalyzer
 import com.digitalparenting.data.BehaviorRecord
@@ -39,8 +37,6 @@ class MonitoringService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val predictionEvaluationDelayMillis = 15 * 60 * 1000L // 15 minutes real-world evaluation window
 
-    private var currentApp: String? = null
-    private var currentSession: AppSession? = null
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
     private val blockingUiController by lazy { ChildBlockingUiController(this) }
     private val sessionRecorder by lazy {
@@ -49,6 +45,15 @@ class MonitoringService : Service() {
             sessionDao = dao,
             limitDao = limitDao,
             onLimitExceeded = blockingUiController::launchBlockedScreen
+        )
+    }
+    private val foregroundSessionTracker by lazy {
+        ChildForegroundSessionTracker(
+            context = this,
+            onSessionCompleted = { session, appName ->
+                sessionRecorder.record(session, appName)
+            },
+            onAppChanged = ::evaluateAppBehavior
         )
     }
     private val protectionHealthController by lazy {
@@ -132,13 +137,7 @@ class MonitoringService : Service() {
         childStatusPublisher.stop()
         authCoordinator.stop()
         blockingUiController.hideOverlay()
-        currentSession?.let {
-            it.endTime = System.currentTimeMillis()
-            sessionRecorder.record(
-                it,
-                it.appName ?: getAppName(it.packageName)
-            )
-        }
+        foregroundSessionTracker.finishCurrentSession()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -166,7 +165,7 @@ class MonitoringService : Service() {
     private fun startMonitoring() {
         handler.post(object : Runnable {
             override fun run() {
-                checkForegroundApp()
+                foregroundSessionTracker.checkForForegroundApp()
                 enforceBlockState()
                 handler.postDelayed(this, 2000)
             }
@@ -174,7 +173,8 @@ class MonitoringService : Service() {
     }
 
     private fun enforceBlockState() {
-        if (currentApp != null && BlockStateManager.isBlocked(currentApp!!)) {
+        val currentApp = foregroundSessionTracker.currentApp()
+        if (currentApp != null && BlockStateManager.isBlocked(currentApp)) {
             blockingUiController.showBlockOverlay(currentApp)
         } else {
             blockingUiController.hideOverlay()
@@ -184,48 +184,7 @@ class MonitoringService : Service() {
         updateForegroundNotification()
     }
 
-    private fun checkForegroundApp() {
-        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val time = System.currentTimeMillis()
-
-        val events = usm.queryEvents(time - 5000, time)
-        val event = UsageEvents.Event()
-
-        var detectedApp: String? = null
-
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                detectedApp = event.packageName
-            }
-        }
-
-        if (detectedApp != null && detectedApp != currentApp) {
-            handleAppSwitch(detectedApp)
-        }
-    }
-
-    private fun handleAppSwitch(newApp: String) {
-        val now = System.currentTimeMillis()
-
-        currentSession?.let {
-            it.endTime = now
-            sessionRecorder.record(
-                it,
-                it.appName ?: getAppName(it.packageName)
-            )
-        }
-
-        currentSession = AppSession(
-            packageName = newApp,
-            appName = getAppName(newApp),
-            startTime = now
-        )
-
-        currentApp = newApp
-
-        println("Switched to: $newApp")
-
+    private fun evaluateAppBehavior(newApp: String) {
         CoroutineScope(Dispatchers.IO).launch {
             val limit = limitDao.getLimit(newApp)?.let { if (it.enabled) it.maxMinutes * 60_000L else 0L } ?: 0L
 
@@ -281,17 +240,27 @@ class MonitoringService : Service() {
                 }
                 BlockMode.WARNING -> {
                     BlockStateManager.removeBlocked(newApp)
-                    handler.post { blockingUiController.showWarningOverlay(currentApp) }
+                    handler.post {
+                        blockingUiController.showWarningOverlay(
+                            foregroundSessionTracker.currentApp()
+                        )
+                    }
                 }
                 BlockMode.DELAY -> {
                     BlockStateManager.removeBlocked(newApp)
                     handler.postDelayed({
-                        blockingUiController.showBlockOverlay(currentApp)
+                        blockingUiController.showBlockOverlay(
+                            foregroundSessionTracker.currentApp()
+                        )
                     }, 5000)
                 }
                 BlockMode.BLOCKED -> {
                     BlockStateManager.setBlocked(setOf(newApp))
-                    handler.post { blockingUiController.showBlockOverlay(currentApp) }
+                    handler.post {
+                        blockingUiController.showBlockOverlay(
+                            foregroundSessionTracker.currentApp()
+                        )
+                    }
                     notificationHelper.showChildAlert(
                         "App Blocked",
                         "$newApp was blocked due to limit or risk level"
@@ -349,16 +318,6 @@ class MonitoringService : Service() {
         }
     }
 
-    private fun getAppName(packageName: String): String {
-        return try {
-            val pm = packageManager
-            val appInfo = pm.getApplicationInfo(packageName, 0)
-            pm.getApplicationLabel(appInfo).toString()
-        } catch (e: Exception) {
-            packageName
-        }
-    }
-
     private suspend fun evaluatePredictionOutcome(
         predictionId: Int,
         appPackage: String,
@@ -402,6 +361,7 @@ class MonitoringService : Service() {
     }
 
     private fun updateForegroundNotification() {
+        val currentApp = foregroundSessionTracker.currentApp()
         val contentText = buildString {
             append("Monitoring usage")
             if (!ProtectionStateManager.isAccessibilityEnabled(this@MonitoringService)) {
@@ -410,7 +370,7 @@ class MonitoringService : Service() {
             if (!ProtectionStateManager.isOverlayPermissionGranted(this@MonitoringService)) {
                 append(" · overlay disabled")
             }
-            if (currentApp != null && BlockStateManager.isBlocked(currentApp!!)) {
+            if (currentApp != null && BlockStateManager.isBlocked(currentApp)) {
                 append(" · blocking $currentApp")
             }
         }
