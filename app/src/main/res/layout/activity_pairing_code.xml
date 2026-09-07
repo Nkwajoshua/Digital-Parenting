@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F7F8">
+    android:background="@color/surface_background">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -29,7 +29,7 @@
                 android:layout_weight="1"
                 android:gravity="end"
                 android:text="Step 1 of 2"
-                android:textColor="#9BA2A8"
+                android:textColor="@color/text_tertiary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -42,6 +42,7 @@
             android:background="@drawable/bg_circle_muted"
             android:gravity="center"
             android:text="🔗"
+            android:importantForAccessibility="no"
             android:textSize="40sp" />
 
         <TextView
@@ -50,7 +51,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="24dp"
             android:text="Enter Pairing Code"
-            android:textColor="#102012"
+            android:textColor="@color/text_primary"
             android:textSize="30sp"
             android:textStyle="bold" />
 
@@ -60,7 +61,7 @@
             android:layout_marginTop="10dp"
             android:gravity="center"
             android:text="Type the 6-digit code shown on the parent device to link this phone."
-            android:textColor="#70767C"
+            android:textColor="@color/text_secondary"
             android:textSize="18sp" />
 
         <LinearLayout
@@ -75,7 +76,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Pairing Code"
-                android:textColor="#737A80"
+                android:textColor="@color/text_secondary"
                 android:textSize="16sp" />
 
             <EditText
@@ -86,8 +87,11 @@
                 android:background="@drawable/bg_input"
                 android:gravity="center"
                 android:hint="000000"
+                android:importantForAutofill="no"
+                android:imeOptions="actionDone"
                 android:inputType="number"
                 android:letterSpacing="0.35"
+                android:maxLength="6"
                 android:padding="12dp"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -105,7 +109,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Where is the code?"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -113,8 +117,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="Open the Parent App on your device. Go to Devices > Add New Device to generate a temporary code."
-                android:textColor="#70767C"
+                android:text="Open the Parent portal, choose Overview, then generate a temporary pairing code."
+                android:textColor="@color/text_secondary"
                 android:textSize="16sp" />
         </LinearLayout>
 

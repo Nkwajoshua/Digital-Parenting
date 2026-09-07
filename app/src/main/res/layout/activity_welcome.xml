@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F7F8"
+    android:background="@color/surface_background"
     android:fillViewport="true">
 
     <LinearLayout
@@ -25,6 +25,7 @@
                 android:layout_gravity="center_horizontal"
                 android:gravity="center"
                 android:text="🛡️"
+                android:importantForAccessibility="no"
                 android:textSize="36sp" />
 
             <TextView
@@ -33,7 +34,7 @@
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="20dp"
                 android:text="Welcome to Device Agent"
-                android:textColor="#102012"
+                android:textColor="@color/text_primary"
                 android:textSize="28sp"
                 android:textStyle="bold" />
 
@@ -43,7 +44,7 @@
                 android:layout_marginTop="12dp"
                 android:gravity="center"
                 android:text="Keeping this device safe, balanced, and connected."
-                android:textColor="#6A7278"
+                android:textColor="@color/text_secondary"
                 android:textSize="18sp" />
         </LinearLayout>
 
@@ -62,7 +63,7 @@
                 android:background="@drawable/bg_circle_muted"
                 android:gravity="center"
                 android:text="🛡"
-                android:textColor="#2F879C"
+                android:textColor="@color/brand_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -77,7 +78,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Smart Protection"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -86,7 +87,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="Blocks unsafe content and helps enforce healthy screen time limits."
-                    android:textColor="#70767C"
+                    android:textColor="@color/text_secondary"
                     android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
@@ -106,7 +107,7 @@
                 android:background="@drawable/bg_circle_muted"
                 android:gravity="center"
                 android:text="🔗"
-                android:textColor="#2F879C"
+                android:textColor="@color/brand_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -121,7 +122,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Parent Sync"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -130,7 +131,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="Connects securely to the parent app for real-time updates and control."
-                    android:textColor="#70767C"
+                    android:textColor="@color/text_secondary"
                     android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
@@ -150,7 +151,8 @@
                 android:background="@drawable/bg_circle_muted"
                 android:gravity="center"
                 android:text="⚡"
-                android:textColor="#E39A52"
+                android:textColor="@color/status_warning"
+                android:importantForAccessibility="no"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -165,7 +167,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Always On"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -174,7 +176,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="Runs quietly in the background to keep protection active."
-                    android:textColor="#70767C"
+                    android:textColor="@color/text_secondary"
                     android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
@@ -196,7 +198,7 @@
             android:layout_marginTop="20dp"
             android:gravity="center"
             android:text="Support   •   About &amp; Privacy"
-            android:textColor="#7C838A"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp" />
 
     </LinearLayout>

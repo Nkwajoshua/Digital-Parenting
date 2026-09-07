@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFF4F2"
+    android:background="@color/surface_background"
     android:gravity="center"
     android:orientation="vertical"
     android:padding="24dp">
@@ -13,6 +13,7 @@
         android:background="@drawable/bg_circle_muted"
         android:gravity="center"
         android:text="⛔"
+        android:importantForAccessibility="no"
         android:textSize="42sp" />
 
     <TextView
@@ -21,7 +22,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:text="App Blocked"
-        android:textColor="#1A1D1F"
+        android:textColor="@color/text_primary"
         android:textSize="30sp"
         android:textStyle="bold" />
 
@@ -32,7 +33,7 @@
         android:layout_marginTop="12dp"
         android:gravity="center"
         android:text="Daily limit exceeded"
-        android:textColor="#70767C"
+        android:textColor="@color/text_secondary"
         android:textSize="18sp" />
 
     <Button

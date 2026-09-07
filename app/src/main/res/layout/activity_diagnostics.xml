@@ -2,7 +2,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F7F8">
+    android:background="@color/surface_background"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -28,7 +29,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="14dp"
                 android:text="Permissions &amp; Diagnostics"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="24sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -45,7 +46,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="System Health"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -54,14 +55,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="Monitoring Service"
-                android:textColor="#8B9096"
+                android:textColor="@color/text_secondary"
                 android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvMonitoringStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -70,14 +71,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="Accessibility"
-                android:textColor="#8B9096"
+                android:textColor="@color/text_secondary"
                 android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvAccessibilityStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -86,14 +87,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="Overlay Permission"
-                android:textColor="#8B9096"
+                android:textColor="@color/text_secondary"
                 android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvOverlayStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -102,14 +103,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="Child Cloud Identity"
-                android:textColor="#8B9096"
+                android:textColor="@color/text_secondary"
                 android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvFirebaseStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -126,7 +127,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Device Details"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -135,14 +136,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="Child UID"
-                android:textColor="#8B9096"
+                android:textColor="@color/text_secondary"
                 android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvDeviceId"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -151,14 +152,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="Last Successful Status Sync"
-                android:textColor="#8B9096"
+                android:textColor="@color/text_secondary"
                 android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvLastCheck"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#1A1D1F"
+                android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>

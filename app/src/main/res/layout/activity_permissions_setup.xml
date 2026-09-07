@@ -2,7 +2,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F7F8">
+    android:background="@color/surface_background"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -30,7 +31,7 @@
                 android:layout_weight="1"
                 android:gravity="end"
                 android:text="Step 1 of 3"
-                android:textColor="#9BA2A8"
+                android:textColor="@color/text_tertiary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -43,6 +44,7 @@
             android:background="@drawable/bg_circle_muted"
             android:gravity="center"
             android:text="🛡️"
+            android:importantForAccessibility="no"
             android:textSize="42sp" />
 
         <TextView
@@ -52,7 +54,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="20dp"
             android:text="Enable Accessibility"
-            android:textColor="#102012"
+            android:textColor="@color/text_primary"
             android:textSize="30sp"
             android:textStyle="bold" />
 
@@ -63,7 +65,7 @@
             android:layout_marginTop="10dp"
             android:gravity="center"
             android:text="This permission is required to monitor app usage, enforce time limits, and block content safely."
-            android:textColor="#70767C"
+            android:textColor="@color/text_secondary"
             android:textSize="18sp" />
 
         <LinearLayout
@@ -79,7 +81,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Data Privacy"
-                android:textColor="#243F30"
+                android:textColor="@color/brand_primary_dark"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -88,7 +90,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:textColor="#70767C"
+                android:textColor="@color/text_secondary"
                 android:textSize="16sp" />
 
             <TextView
@@ -96,7 +98,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:textColor="#70767C"
+                android:textColor="@color/text_secondary"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -120,7 +122,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Accessibility Service"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
@@ -130,7 +132,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:text="PENDING"
-                    android:textColor="#C38D2A"
+                    android:textColor="@color/status_warning"
                     android:textSize="16sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -144,7 +146,7 @@
             android:layout_marginTop="24dp"
             android:max="3"
             android:progress="1"
-            android:progressTint="#2F879C" />
+            android:progressTint="@color/brand_primary" />
 
         <Button
             android:id="@+id/btnPermissionAction"
