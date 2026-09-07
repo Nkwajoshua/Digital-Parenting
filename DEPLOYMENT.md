@@ -14,6 +14,8 @@ Before deployment, use a commit whose five blocking CI jobs are green.
 - Firebase CLI installed.
 - Parent Web production Firebase environment is configured.
 - The target commit has passed CI.
+- Cloud Functions and Cloud Scheduler are enabled/configured for the target Firebase/Google Cloud project as required by the deployed functions.
+- Firebase Cloud Messaging is configured if push-assisted time-request notifications are being exercised.
 
 For local CLI use:
 
@@ -56,6 +58,22 @@ For a backend authority change, prefer at least:
 firebase deploy --only firestore:rules,functions
 ```
 
+## Deployed backend responsibilities
+
+The Functions deployment includes both callable control-plane operations and background/scheduled work exported through `functions/entrypoint.js`.
+
+Current callable operations include:
+
+- `createPairingCode`
+- `redeemPairingCode`
+- `sendCommand`
+- `resolveTimeRequest`
+- `reportChildSecurityAlert`
+
+Current trigger/scheduled responsibilities include pairing-code expiry cleanup, command auditing, parent notification creation, and FCM attempts for supported time-request events.
+
+`cleanExpiredPairingCodes` uses Cloud Scheduler. FCM delivery requires valid client tokens and should be treated as supplemental to persisted Firestore state.
+
 ## GitHub manual deployment workflow
 
 Workflow: `.github/workflows/firebase-deploy-manual.yml`
@@ -88,6 +106,17 @@ After deployment, perform the relevant subset of `E2E_TEST_PLAN.md`, especially 
 - protection-health alert flow
 
 Do not validate callable-owned operations by manually creating Firestore command/pairing/notification documents.
+
+## Logs and operations
+
+Useful Functions log prefixes include:
+
+- `[PAIRING_CLEANUP]`
+- `[COMMAND_AUDIT]`
+- `[TIME_REQUEST]`
+- `[FCM]`
+
+Inspect Functions logs through Firebase/Google Cloud tooling for the target environment. Local emulator tests validate callable and Firestore behavior, but real FCM device delivery still requires a live configured client/token.
 
 ## Rollback
 
