@@ -4,28 +4,15 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.os.*
-import androidx.core.app.NotificationCompat
 import com.digitalparenting.util.NotificationHelper
 import com.digitalparenting.util.ProtectionStateManager
-import com.digitalparenting.data.AppSession
-import com.digitalparenting.data.BehaviorAnalyzer
-import com.digitalparenting.data.BehaviorRecord
-import com.digitalparenting.data.BehaviorPredictor
 import com.digitalparenting.data.BlockStateManager
-import com.digitalparenting.data.InterventionEngine
-import com.digitalparenting.data.BlockMode
-import com.digitalparenting.data.UserProfile
-import com.digitalparenting.data.PredictionRecordEntity
 import com.digitalparenting.data.local.AppDatabase
 import com.digitalparenting.data.local.ProtectionIncidentEntity
 import com.digitalparenting.data.local.AppLimitDao
 import com.digitalparenting.data.local.AppSessionDao
-import com.digitalparenting.data.local.AppUsageStats
-import com.digitalparenting.data.local.BehaviorRecordDao
-import com.digitalparenting.data.local.UserProfileDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MonitoringService : Service() {
@@ -35,7 +22,6 @@ class MonitoringService : Service() {
 
     private lateinit var notificationHelper: NotificationHelper
     private val handler = Handler(Looper.getMainLooper())
-    private val predictionEvaluationDelayMillis = 15 * 60 * 1000L // 15 minutes real-world evaluation window
 
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
     private val blockingUiController by lazy { ChildBlockingUiController(this) }
@@ -47,13 +33,33 @@ class MonitoringService : Service() {
             onLimitExceeded = blockingUiController::launchBlockedScreen
         )
     }
+    private val behaviorController by lazy {
+        ChildBehaviorController(
+            context = this,
+            sessionDao = dao,
+            limitDao = limitDao,
+            behaviorRecordDao = database.behaviorRecordDao(),
+            userProfileDao = database.userProfileDao(),
+            predictionRecordDao = database.predictionRecordDao(),
+            onChildAlert = { title, message ->
+                notificationHelper.showChildAlert(title, message)
+            },
+            onIncident = ::logIncident,
+            onHideOverlay = blockingUiController::hideOverlay,
+            onShowWarningOverlay = blockingUiController::showWarningOverlay,
+            onShowBlockOverlay = blockingUiController::showBlockOverlay,
+            currentAppProvider = { foregroundSessionTracker.currentApp() }
+        )
+    }
     private val foregroundSessionTracker by lazy {
         ChildForegroundSessionTracker(
             context = this,
             onSessionCompleted = { session, appName ->
                 sessionRecorder.record(session, appName)
             },
-            onAppChanged = ::evaluateAppBehavior
+            onAppChanged = { packageName ->
+                behaviorController.evaluate(packageName)
+            }
         )
     }
     private val protectionHealthController by lazy {
@@ -93,41 +99,32 @@ class MonitoringService : Service() {
     private lateinit var database: AppDatabase
     private lateinit var dao: AppSessionDao
     private lateinit var limitDao: AppLimitDao
-    private lateinit var behaviorRecordDao: BehaviorRecordDao
-    private lateinit var userProfileDao: UserProfileDao
-    private lateinit var predictionRecordDao: com.digitalparenting.data.local.PredictionRecordDao
     private lateinit var incidentDao: com.digitalparenting.data.local.ProtectionIncidentDao
-    private val behaviorAnalyzer = BehaviorAnalyzer()
-    private val behaviorPredictor = BehaviorPredictor()
-    private val interventionEngine = InterventionEngine()
 
     override fun onCreate() {
         super.onCreate()
-        
+
         notificationHelper = NotificationHelper(this)
         notificationHelper.createChannels()
         startForeground(
             NotificationHelper.FOREGROUND_NOTIFICATION_ID,
-            notificationHelper.buildForegroundNotification("Monitoring usage and enforcing protections")
+            notificationHelper.buildForegroundNotification(
+                "Monitoring usage and enforcing protections"
+            )
         )
 
         database = AppDatabase.getDatabase(this)
         dao = database.appSessionDao()
         limitDao = database.appLimitDao()
-        behaviorRecordDao = database.behaviorRecordDao()
-        userProfileDao = database.userProfileDao()
-        predictionRecordDao = database.predictionRecordDao()
         incidentDao = database.protectionIncidentDao()
 
-        behaviorPredictor.loadState(this)
-        println("Loaded BehaviorPredictor state: ${behaviorPredictor.getMetrics()}")
+        behaviorController.loadState()
         authCoordinator.start()
 
         restoreProtectionState()
         updateForegroundNotification()
         startMonitoring()
         childStatusPublisher.start()
-
     }
 
     override fun onDestroy() {
@@ -141,12 +138,14 @@ class MonitoringService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Restart automatically if killed by the system
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent) {
-        val restartServiceIntent = Intent(applicationContext, MonitoringService::class.java)
+        val restartServiceIntent = Intent(
+            applicationContext,
+            MonitoringService::class.java
+        )
         val restartPendingIntent = PendingIntent.getService(
             applicationContext,
             1,
@@ -182,172 +181,6 @@ class MonitoringService : Service() {
 
         protectionHealthController.verify()
         updateForegroundNotification()
-    }
-
-    private fun evaluateAppBehavior(newApp: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val limit = limitDao.getLimit(newApp)?.let { if (it.enabled) it.maxMinutes * 60_000L else 0L } ?: 0L
-
-            val sessionWindowEntities = dao.getSessionsBetween(
-                System.currentTimeMillis() - 7 * 24L * 60L * 60L * 1000L,
-                System.currentTimeMillis()
-            )
-            val sessionWindow = sessionWindowEntities.map { entity ->
-                AppSession(
-                    packageName = entity.packageName,
-                    startTime = entity.startTime,
-                    endTime = entity.endTime
-                )
-            }
-
-            val profile = behaviorAnalyzer.deriveUserProfile(sessionWindow)
-
-            val sessionsForApp = sessionWindow.filter { it.packageName == newApp }
-            val baseline = if (profile.avgDailyUsageMinutes <= 0L) 1.0 else profile.avgDailyUsageMinutes.toDouble()
-
-            val prediction = behaviorPredictor.predict(newApp, sessionsForApp, profile, sessionWindow)
-
-            val insight = behaviorAnalyzer.analyze(newApp, sessionsForApp, limit, baseline)
-            
-            var mode = interventionEngine.decide(insight)
-            if (prediction.likelyToBinge && mode.ordinal < BlockMode.DELAY.ordinal) {
-                mode = BlockMode.DELAY
-            }
-            if (prediction.riskScore >= 80 && mode.ordinal < BlockMode.BLOCKED.ordinal) {
-                mode = BlockMode.BLOCKED
-            }
-
-            BlockStateManager.setBlockMode(newApp, mode)
-
-            if (prediction.riskScore >= 80) {
-                notificationHelper.showChildAlert(
-                    "High Risk Behavior",
-                    "Risky usage pattern detected for $newApp"
-                )
-                logIncident(
-                    "high_risk",
-                    "High Risk Behavior",
-                    "Risky usage pattern detected for $newApp",
-                    newApp
-                )
-            }
-
-            when (mode) {
-                BlockMode.NONE -> {
-                    BlockStateManager.clearBlocked()
-                    ProtectionStateManager.clearPersistedBlockState(this@MonitoringService)
-                    handler.post { blockingUiController.hideOverlay() }
-                }
-                BlockMode.WARNING -> {
-                    BlockStateManager.removeBlocked(newApp)
-                    handler.post {
-                        blockingUiController.showWarningOverlay(
-                            foregroundSessionTracker.currentApp()
-                        )
-                    }
-                }
-                BlockMode.DELAY -> {
-                    BlockStateManager.removeBlocked(newApp)
-                    handler.postDelayed({
-                        blockingUiController.showBlockOverlay(
-                            foregroundSessionTracker.currentApp()
-                        )
-                    }, 5000)
-                }
-                BlockMode.BLOCKED -> {
-                    BlockStateManager.setBlocked(setOf(newApp))
-                    handler.post {
-                        blockingUiController.showBlockOverlay(
-                            foregroundSessionTracker.currentApp()
-                        )
-                    }
-                    notificationHelper.showChildAlert(
-                        "App Blocked",
-                        "$newApp was blocked due to limit or risk level"
-                    )
-                    logIncident(
-                        "app_blocked",
-                        "App Blocked",
-                        "$newApp was blocked due to limit or risk level",
-                        newApp
-                    )
-                }
-            }
-
-            if (BlockStateManager.blockedPackages.isNotEmpty()) {
-                ProtectionStateManager.persistBlockState(
-                    this@MonitoringService,
-                    BlockStateManager.blockedPackages,
-                    BlockStateManager.blockModes
-                )
-            } else {
-                ProtectionStateManager.clearPersistedBlockState(this@MonitoringService)
-            }
-
-            userProfileDao.upsert(profile)
-            behaviorRecordDao.insert(
-                BehaviorRecord(
-                    appPackage = newApp,
-                    score = insight.addictionScore,
-                    riskLevel = insight.riskLevel.name,
-                    mode = mode.name,
-                    timestamp = System.currentTimeMillis()
-                )
-            )
-
-            val predictionId = predictionRecordDao.insert(
-                PredictionRecordEntity(
-                    timestamp = System.currentTimeMillis(),
-                    currentApp = newApp,
-                    predictedNextApp = prediction.predictedNextApp,
-                    riskScore = prediction.riskScore,
-                    reason = prediction.reason,
-                    wasAccurate = null,
-                    actualOutcomeScore = null
-                )
-            ).toInt()
-
-            CoroutineScope(Dispatchers.IO).launch {
-                delay(predictionEvaluationDelayMillis)
-                evaluatePredictionOutcome(predictionId, newApp, prediction, profile)
-            }
-
-            println("Prediction explainability: risk=${prediction.riskScore}, reason=${prediction.reason}")
-            println("Behavior: Score=${insight.addictionScore} Risk=${insight.riskLevel} Mode=$mode App=$newApp")
-            println("Prediction: Binge=${prediction.likelyToBinge} Risk=${prediction.riskScore} Next=${prediction.predictedNextApp} Reason=${prediction.reason}")
-        }
-    }
-
-    private suspend fun evaluatePredictionOutcome(
-        predictionId: Int,
-        appPackage: String,
-        prediction: com.digitalparenting.data.BehaviorPrediction,
-        profile: UserProfile
-    ) {
-        val now = System.currentTimeMillis()
-        val windowEnd = now
-
-        val windowStart = now - 15 * 60 * 1000L
-        val usageWindow = dao.getSessionsBetween(windowStart, windowEnd)
-            .filter { it.packageName == appPackage }
-
-        val actualOutcomeScore = (usageWindow.sumOf { it.duration } / 1000 / 60).toInt()
-
-        val predictedThreshold = (profile.avgDailyUsageMinutes * 0.25).toInt().coerceAtLeast(1)
-
-        val wasAccurate = if (prediction.likelyToBinge) {
-            actualOutcomeScore >= predictedThreshold
-        } else {
-            actualOutcomeScore < predictedThreshold
-        }
-
-        predictionRecordDao.updateOutcome(predictionId, wasAccurate, actualOutcomeScore)
-
-        behaviorPredictor.adjustWeights(prediction, wasAccurate)
-        behaviorPredictor.saveState(this)
-
-        println("Prediction outcome evaluated for record=$predictionId accurate=$wasAccurate actualMinutes=$actualOutcomeScore")
-        println("Updated BehaviorPredictor metrics: ${behaviorPredictor.getMetrics()}")
     }
 
     private fun restoreProtectionState() {
