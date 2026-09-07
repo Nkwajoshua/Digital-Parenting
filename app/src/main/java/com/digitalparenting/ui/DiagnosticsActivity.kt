@@ -4,11 +4,10 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.ImageButton
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
 import com.google.firebase.auth.FirebaseAuth
 
-class DiagnosticsActivity : AppCompatActivity() {
+class DiagnosticsActivity : EdgeToEdgeActivity() {
 
     private lateinit var tvMonitoringStatus: TextView
     private lateinit var tvAccessibilityStatus: TextView
