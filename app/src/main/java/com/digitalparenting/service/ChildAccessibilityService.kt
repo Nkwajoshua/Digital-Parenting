@@ -4,7 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import com.digitalparenting.data.BlockStateManager
 
-class ParentAccessibilityService : AccessibilityService() {
+class ChildAccessibilityService : AccessibilityService() {
 
     private var lastActionTime = 0L
 
