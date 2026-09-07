@@ -44,11 +44,6 @@
         <activity android:name=".ui.RequestMoreTimeActivity"
             android:exported="false" />
 
-        <!-- Block Activity (Overlay) -->
-        <activity android:name=".ui.BlockActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
-
         <!-- Foreground Service -->
         <service
             android:name=".service.MonitoringService"

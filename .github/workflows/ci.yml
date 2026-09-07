@@ -147,3 +147,6 @@ jobs:
 
       - name: Assemble debug APK
         run: gradle --no-daemon assembleDebug
+
+      - name: Compile Android instrumented test APK
+        run: gradle --no-daemon assembleDebugAndroidTest
