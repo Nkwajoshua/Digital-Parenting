@@ -1,11 +1,16 @@
 package com.digitalparenting.ui
 
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.ImageButton
 import android.widget.TextView
 import com.digitalparenting.R
+import com.digitalparenting.service.MonitoringService
+import com.digitalparenting.util.ChildStatusSyncState
+import com.digitalparenting.util.ProtectionStateManager
 import com.google.firebase.auth.FirebaseAuth
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class DiagnosticsActivity : EdgeToEdgeActivity() {
 
@@ -36,27 +41,32 @@ class DiagnosticsActivity : EdgeToEdgeActivity() {
     }
 
     private fun bindDiagnostics() {
-        val accessibilityEnabled = isAccessibilityEnabled()
-        val overlayEnabled = Settings.canDrawOverlays(this)
-        val firebaseConnected = FirebaseAuth.getInstance().currentUser != null
+        val user = FirebaseAuth.getInstance().currentUser
+        val syncStatus = ChildStatusSyncState.status(this, user?.uid)
+        val lastSyncAt = ChildStatusSyncState.lastSuccessfulSyncAt(this, user?.uid)
 
-        tvMonitoringStatus.text = "Active"
-        tvAccessibilityStatus.text = if (accessibilityEnabled) "Enabled" else "Disabled"
-        tvOverlayStatus.text = if (overlayEnabled) "Enabled" else "Disabled"
-        tvFirebaseStatus.text = if (firebaseConnected) "Connected" else "Not connected"
-        tvDeviceId.text = FirebaseAuth.getInstance().currentUser?.uid ?: "Unavailable"
-        tvLastCheck.text = java.text.SimpleDateFormat(
-            "dd MMM yyyy, hh:mm a",
-            java.util.Locale.getDefault()
-        ).format(java.util.Date())
-    }
-
-    private fun isAccessibilityEnabled(): Boolean {
-        val enabledServices = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-
-        return enabledServices.contains(packageName, ignoreCase = true)
+        tvMonitoringStatus.text = if (MonitoringService.isRunning) "Running" else "Stopped"
+        tvAccessibilityStatus.text = if (ProtectionStateManager.isAccessibilityEnabled(this)) {
+            "Enabled"
+        } else {
+            "Disabled"
+        }
+        tvOverlayStatus.text = if (ProtectionStateManager.isOverlayPermissionGranted(this)) {
+            "Enabled"
+        } else {
+            "Disabled"
+        }
+        tvFirebaseStatus.text = when (syncStatus) {
+            ChildStatusSyncState.Status.NOT_AUTHENTICATED -> "Not authenticated"
+            ChildStatusSyncState.Status.WAITING -> "Authenticated · waiting for status sync"
+            ChildStatusSyncState.Status.SYNCED -> "Authenticated · status synced"
+            ChildStatusSyncState.Status.STALE -> "Authenticated · status sync stale"
+        }
+        tvDeviceId.text = user?.uid ?: "Unavailable"
+        tvLastCheck.text = if (lastSyncAt > 0L) {
+            SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(lastSyncAt))
+        } else {
+            "No successful status write yet"
+        }
     }
 }

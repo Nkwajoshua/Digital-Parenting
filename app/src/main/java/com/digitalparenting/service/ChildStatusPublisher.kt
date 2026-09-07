@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.digitalparenting.util.ChildStatusSyncState
 import com.digitalparenting.util.ProtectionStateManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -55,6 +56,10 @@ internal class ChildStatusPublisher(
             }
     }
 
+    fun publishNow() {
+        publishHeartbeat()
+    }
+
     fun start() {
         if (running) return
         running = true
@@ -98,6 +103,10 @@ internal class ChildStatusPublisher(
         firestore.collection("children")
             .document(user.uid)
             .update(payload)
+            .addOnSuccessListener {
+                ChildStatusSyncState.recordSuccessfulSync(appContext, user.uid)
+                Log.d("CHILD_STATUS", "Child heartbeat published successfully")
+            }
             .addOnFailureListener { error ->
                 Log.w("CHILD_STATUS", "Unable to publish child heartbeat", error)
             }
