@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.digitalparenting.BuildConfig
 import com.digitalparenting.util.ProtectionStateManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -28,6 +27,7 @@ internal class ChildStatusPublisher(
 ) {
     private val appContext = context.applicationContext
     private val handler = Handler(Looper.getMainLooper())
+    private val appVersion: String by lazy { resolveAppVersion() }
     private var running = false
 
     private val heartbeatRunnable = object : Runnable {
@@ -87,7 +87,7 @@ internal class ChildStatusPublisher(
             "lastHeartbeatAt" to FieldValue.serverTimestamp(),
             "monitoringActive" to true,
             "charging" to charging,
-            "appVersion" to BuildConfig.VERSION_NAME,
+            "appVersion" to appVersion,
             "deviceTime" to System.currentTimeMillis(),
             "accessibilityEnabled" to ProtectionStateManager.isAccessibilityEnabled(appContext),
             "overlayPermissionGranted" to ProtectionStateManager.isOverlayPermissionGranted(appContext),
@@ -101,5 +101,19 @@ internal class ChildStatusPublisher(
             .addOnFailureListener { error ->
                 Log.w("CHILD_STATUS", "Unable to publish child heartbeat", error)
             }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun resolveAppVersion(): String {
+        return try {
+            appContext.packageManager
+                .getPackageInfo(appContext.packageName, 0)
+                .versionName
+                .orEmpty()
+                .ifBlank { "unknown" }
+        } catch (error: Exception) {
+            Log.w("CHILD_STATUS", "Unable to resolve app version", error)
+            "unknown"
+        }
     }
 }
