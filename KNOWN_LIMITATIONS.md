@@ -15,10 +15,11 @@ This file lists unresolved current constraints. Completed Phase 2-6 migrations a
 
 ## Android platform/runtime
 
-- The Child Android app compiles against API 36 but intentionally still targets API 34. The target remains pinned until the remaining Phase 6 foreground-service, edge-to-edge, predictive-back, notification-permission, and Accessibility disclosure work is completed and validated.
-- Persisted block state can now hydrate independently when `ChildAccessibilityService` connects, and Parent block/unblock commands persist their local block-state mutation. Real-device process-death and OEM recovery still require validation.
+- The Child Android app compiles against API 36 but intentionally still targets API 34. The target remains pinned until the remaining Phase 6 edge-to-edge, predictive-back, notification-permission, and Accessibility disclosure work is completed and validated.
+- `MonitoringService` is now classified as an Android `specialUse` foreground service for continuous Child-device parental-control monitoring and app-limit enforcement instead of the previous `dataSync` classification. Android 14+ therefore requires `FOREGROUND_SERVICE_SPECIAL_USE`, and Google Play distribution requires review of the declared free-form special-use subtype. A green repository build does not imply Play approval.
+- Monitoring recovery now relies on `START_STICKY` plus the paired-child `BOOT_COMPLETED` receiver rather than an `onTaskRemoved()` AlarmManager self-restart. Real-device restart behavior, OEM process management, and Android 15/16 background-start behavior still require live validation.
+- Persisted block state can hydrate independently when `ChildAccessibilityService` connects, and Parent block/unblock commands persist their local block-state mutation. Real-device process-death and OEM recovery still require validation.
 - The current block-state model does not distinguish the ownership/source of a block (for example Parent command vs behavior-policy block). Changing that policy model is intentionally outside the state-recovery slice and should be handled explicitly if source-specific precedence is required.
-- Long-running foreground monitoring, OEM background restrictions, permission recovery, and process-death behavior still need broader real-device validation.
 - Android Child FCM token registration/messaging support is incomplete. Backend FCM attempts exist for time-request events, but push delivery is not yet a fully verified Child delivery channel.
 
 ## Child UI/product correctness
@@ -40,7 +41,7 @@ This file lists unresolved current constraints. Completed Phase 2-6 migrations a
 ## Production readiness
 
 - Passing CI is necessary but not sufficient for a production release. The current five jobs prove web/functions builds, emulator-backed authorization/callable behavior, and Android app/test-APK compilation.
-- Production release still requires manual/live validation of pairing, command enforcement, time requests, usage sync, permission recovery, device restart/process-death behavior, and supported Android versions.
+- Production release still requires manual/live validation of pairing, command enforcement, time requests, usage sync, permission recovery, foreground-service recovery, device restart/process-death behavior, and supported Android versions.
 - Firebase deployment is manual. Rules and callable Functions that form the server-authoritative control plane should be deployed as a coordinated release rather than independently introducing an incompatible client/server boundary.
 
 ## Development-environment constraints

@@ -25,6 +25,12 @@ firebase login
 firebase use <PROJECT_ID>
 ```
 
+## Android distribution note
+
+The Child APK declares `MonitoringService` as an Android `specialUse` foreground service for continuous Child-device parental-control monitoring and app-limit enforcement. Distribution through Google Play requires the declared special-use subtype/use case to be reviewed in Play Console. Repository CI validates the Android manifest and app/test-APK compilation, but it does not constitute Google Play approval.
+
+Before a production Android release, also run the relevant live-device scenarios in `E2E_TEST_PLAN.md`, including foreground-service startup, task removal, process death, and device reboot on the Android versions you intend to support.
+
 ## Parent Web build
 
 ```bash

@@ -3,7 +3,7 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions"/>
@@ -44,12 +44,20 @@
         <activity android:name=".ui.RequestMoreTimeActivity"
             android:exported="false" />
 
-        <!-- Foreground Service -->
+        <!--
+            Persistent Child parental-control orchestration does not fit a standard
+            foreground-service category. Android reviews this free-form subtype when
+            specialUse is declared for distribution through Google Play.
+        -->
         <service
             android:name=".service.MonitoringService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync"/>
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="continuous_child_device_parental_control_monitoring_and_app_limit_enforcement" />
+        </service>
 
         <!-- Boot Receiver -->
         <receiver android:name=".service.BootReceiver"
