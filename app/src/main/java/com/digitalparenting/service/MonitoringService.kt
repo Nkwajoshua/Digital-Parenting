@@ -3,6 +3,7 @@ package com.digitalparenting.service
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -178,11 +179,17 @@ class MonitoringService : Service() {
     }
 
     private fun promoteToForeground(contentText: String) {
+        val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        } else {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
+        }
+
         ServiceCompat.startForeground(
             this,
             NotificationHelper.FOREGROUND_NOTIFICATION_ID,
             notificationHelper.buildForegroundNotification(contentText),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            serviceType
         )
     }
 
