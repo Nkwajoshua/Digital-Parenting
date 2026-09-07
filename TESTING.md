@@ -2,16 +2,17 @@
 
 ## Current scope
 
-The repository currently retains four Android instrumented test classes:
+The repository currently retains five Android instrumented test classes:
 
 1. `app/src/androidTest/java/com/digitalparenting/data/local/IncidentLoggingTest.kt`
 2. `app/src/androidTest/java/com/digitalparenting/ProtectionIncidentPersistenceIntegrationTest.kt`
 3. `app/src/androidTest/java/com/digitalparenting/ProtectionStateRecoveryIntegrationTest.kt`
 4. `app/src/androidTest/java/com/digitalparenting/AccessibilityConsentStateIntegrationTest.kt`
+5. `app/src/androidTest/java/com/digitalparenting/ChildStatusSyncStateIntegrationTest.kt`
 
-Together they contain **18 instrumented test methods**.
+Together they contain **23 instrumented test methods**.
 
-The first two classes validate the local Room persistence boundary for protection incidents. The recovery class validates SharedPreferences-to-memory block-state restoration used by Child enforcement. The consent-state class validates the local versioned Accessibility disclosure-consent gate. None of these tests claim to cover the complete `MonitoringService` lifecycle, Android system permission dialogs, Firebase delivery, Parent Web UI, or a deleted Protection Center Android UI.
+The incident classes validate local Room persistence. The recovery class validates SharedPreferences-to-memory block-state restoration. The consent class validates the local versioned Accessibility disclosure gate. The Child status-sync class validates identity-scoped evidence of successful Firestore heartbeat writes. None of these tests claim to cover the complete `MonitoringService` lifecycle, Android system permission dialogs, physical Firebase delivery, Parent Web UI, or device/OEM behavior.
 
 ## What is covered
 
@@ -44,9 +45,7 @@ Three integration tests cover:
 
 - hydrating a persisted blocked package and block mode back into `BlockStateManager`;
 - clearing stale in-memory state when the persisted snapshot is empty;
-- persisting the current in-memory block state and restoring it after the memory state is cleared.
-
-This recovery coverage protects the state boundary now shared by `MonitoringService`, Parent command handling, and `ChildAccessibilityService`.
+- persisting current in-memory block state and restoring it after memory state is cleared.
 
 ### AccessibilityConsentStateIntegrationTest
 
@@ -55,7 +54,17 @@ Two integration tests cover:
 - a fresh local permission-setup state does not satisfy the Accessibility disclosure gate;
 - recording the current disclosure version satisfies the shared consent state used by startup, setup, and `ChildAccessibilityService`.
 
-These tests validate local consent persistence only. They do not automate the visual disclosure dialog, Android Accessibility settings, or Google Play review requirements.
+### ChildStatusSyncStateIntegrationTest
+
+Five integration tests cover:
+
+- unauthenticated state is distinct from sync state;
+- an authenticated Child with no successful write reports `WAITING`;
+- a recent successful write reports `SYNCED` for the same UID;
+- successful-write evidence cannot leak from one Child UID to another;
+- old evidence transitions to `STALE`.
+
+These tests validate local state persistence and classification only. They do not automate a real Firestore write or network failure.
 
 ## CI behavior
 
@@ -66,9 +75,9 @@ gradle --no-daemon assembleDebug
 gradle --no-daemon assembleDebugAndroidTest
 ```
 
-The second command compiles the instrumented-test APK and therefore protects the `androidTest` source set from compile/dependency drift.
+The second command compiles the instrumented-test APK and protects the `androidTest` source set from compile/dependency drift.
 
-**CI does not currently execute the 18 methods on an emulator/device.** A green CI run means the app APK and test APK compiled successfully, not that `connectedAndroidTest` executed.
+**CI does not currently execute the 23 methods on an emulator/device.** A green CI run means the app APK and test APK compiled successfully, not that `connectedAndroidTest` executed.
 
 ## Execute instrumented tests locally
 
@@ -85,44 +94,16 @@ Run the complete Android instrumented suite:
 gradle --no-daemon connectedAndroidTest
 ```
 
-Run only the DAO test class:
+Run a single class by supplying the instrumentation class argument, for example:
 
 ```bash
 gradle --no-daemon connectedAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments=class=com.digitalparenting.data.local.IncidentLoggingTest
-```
-
-Run only the Room integration class:
-
-```bash
-gradle --no-daemon connectedAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments=class=com.digitalparenting.ProtectionIncidentPersistenceIntegrationTest
-```
-
-Run only the block-state recovery class:
-
-```bash
-gradle --no-daemon connectedAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments=class=com.digitalparenting.ProtectionStateRecoveryIntegrationTest
-```
-
-Run only the Accessibility consent-state class:
-
-```bash
-gradle --no-daemon connectedAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments=class=com.digitalparenting.AccessibilityConsentStateIntegrationTest
-```
-
-Run one method:
-
-```bash
-gradle --no-daemon connectedAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments=class=com.digitalparenting.ProtectionStateRecoveryIntegrationTest#persistedStateHydratesIntoMemory
+  -Pandroid.testInstrumentationRunnerArguments=class=com.digitalparenting.ChildStatusSyncStateIntegrationTest
 ```
 
 ## Backend/security tests
 
-Android persistence/recovery/consent-state coverage is only one part of repository verification. The blocking CI workflow also executes:
+Android persistence/recovery/consent/sync-state coverage is only one part of repository verification. The blocking CI workflow also executes:
 
 - Firestore client authorization tests in `tests/firestore-rules/`;
 - callable integration tests in `tests/functions-integration/`;
@@ -136,16 +117,15 @@ See `CI_AND_TESTING.md` for exact commands.
 The retained Android instrumented tests do not prove:
 
 - foreground-service lifecycle behavior on real devices;
-- that AccessibilityService actually receives and enforces blocked-app events after process death on every supported Android/OEM build;
-- the Accessibility prominent-disclosure dialog's visual/interaction behavior;
-- Android Accessibility-settings grant/decline behavior;
+- Accessibility event delivery and enforcement across OEM builds;
+- visual Accessibility disclosure behavior or system settings grant/decline behavior;
 - Android 13+ notification permission allow/deny UX;
-- Google Play AccessibilityService declaration approval;
-- full command delivery and acknowledgement;
+- Google Play policy approval;
+- full command delivery and acknowledgement on a live Firebase project;
 - real FCM delivery;
 - Parent Web display of Child events;
-- end-to-end time-request behavior on a live Firebase project;
-- final target-SDK 36 behavior.
+- end-to-end time-request behavior;
+- Android 15/16 visual, gesture, boot, or process-recovery behavior.
 
 Use `E2E_TEST_PLAN.md` for manual live-system validation until those flows gain dedicated automated coverage.
 
