@@ -4,14 +4,23 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.OnBackPressedCallback
 import com.digitalparenting.R
 
-class BlockedActivity : AppCompatActivity() {
+class BlockedActivity : EdgeToEdgeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_blocked_screen)
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // Blocked screen intentionally consumes back navigation.
+                }
+            }
+        )
 
         val appName = intent.getStringExtra("appName") ?: "This app"
         val reason = intent.getStringExtra("reason") ?: "Daily limit exceeded"
@@ -25,10 +34,5 @@ class BlockedActivity : AppCompatActivity() {
                 putExtra("appPackage", intent.getStringExtra("appPackage") ?: "unknown.package")
             })
         }
-    }
-
-    @Suppress("MissingSuperCall")
-    override fun onBackPressed() {
-        // Prevent easy bypass - do nothing to block back navigation
     }
 }
