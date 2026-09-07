@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.*
-import android.content.IntentFilter
 import android.view.LayoutInflater
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
@@ -69,11 +68,11 @@ class MonitoringService : Service() {
     }
     private val usageSyncRepository = UsageSyncRepository()
     private val securityAlertReporter by lazy { ChildSecurityAlertReporter() }
+    private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
     private var timeRequestListener: ListenerRegistration? = null
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private var commandListener: ListenerRegistration? = null
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
-    private val heartbeatHandler = Handler(Looper.getMainLooper())
 
     private lateinit var database: AppDatabase
     private lateinit var dao: AppSessionDao
@@ -122,20 +121,19 @@ class MonitoringService : Service() {
         restoreProtectionState()
         updateForegroundNotification()
         startMonitoring()
-        startHeartbeatLoop()
+        childStatusPublisher.start()
 
     }
 
 
     private fun initializeFirebaseFeaturesWhenAuthenticated() {
-        heartbeatHandler.removeCallbacksAndMessages(null)
         authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
 
         val listener = FirebaseAuth.AuthStateListener { auth ->
             val user = auth.currentUser
             if (user != null) {
                 Log.d("CHILD_AUTH", "MonitoringService auth ready UID=${user.uid}")
-                publishChildStatus()
+                childStatusPublisher.publishInitialStatus()
                 startApprovedTimeRequestListener()
                 startRemoteCommandListener()
             } else {
@@ -154,30 +152,13 @@ class MonitoringService : Service() {
         FirebaseAuth.getInstance().addAuthStateListener(listener)
     }
 
-    private fun publishChildStatus() {
-        val user = FirebaseAuth.getInstance().currentUser ?: return
-        firestore.collection("children")
-            .document(user.uid)
-            .update(
-                mapOf(
-                    "deviceName" to "${Build.MANUFACTURER} ${Build.MODEL}",
-                    "platform" to "android",
-                    "monitoringActive" to true,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            )
-            .addOnFailureListener { error ->
-                Log.w("CHILD_STATUS", "Unable to update child status before/without pairing", error)
-            }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         timeRequestListener?.remove()
         timeRequestListener = null
         commandListener?.remove()
         commandListener = null
-        heartbeatHandler.removeCallbacksAndMessages(null)
+        childStatusPublisher.stop()
         authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
         authStateListener = null
         hideBlockOverlay()
@@ -207,38 +188,6 @@ class MonitoringService : Service() {
             restartPendingIntent
         )
         super.onTaskRemoved(rootIntent)
-    }
-
-
-    private fun startHeartbeatLoop() {
-        heartbeatHandler.post(object : Runnable {
-            override fun run() {
-                publishHeartbeat()
-                heartbeatHandler.postDelayed(this, 60_000)
-            }
-        })
-    }
-
-    private fun publishHeartbeat() {
-        val user = FirebaseAuth.getInstance().currentUser ?: return
-        val batteryStatus = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        val batteryPct = if (level >= 0 && scale > 0) ((level * 100f) / scale).toInt() else null
-        val chargingState = (batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1)
-        val charging = chargingState == BatteryManager.BATTERY_STATUS_CHARGING || chargingState == BatteryManager.BATTERY_STATUS_FULL
-
-        firestore.collection("children").document(user.uid).update(mapOf(
-            "lastHeartbeatAt" to FieldValue.serverTimestamp(),
-            "monitoringActive" to true,
-            "batteryLevel" to batteryPct,
-            "charging" to charging,
-            "appVersion" to BuildConfig.VERSION_NAME,
-            "deviceTime" to System.currentTimeMillis(),
-            "accessibilityEnabled" to ProtectionStateManager.isAccessibilityEnabled(this),
-            "overlayPermissionGranted" to ProtectionStateManager.isOverlayPermissionGranted(this),
-            "updatedAt" to FieldValue.serverTimestamp()
-        ))
     }
 
     private fun createPermissionAlert(type: String, title: String, body: String, severity: String) {
