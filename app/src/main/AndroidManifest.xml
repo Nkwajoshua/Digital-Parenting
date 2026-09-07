@@ -65,9 +65,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- Accessibility Service -->
+        <!-- Child Accessibility Service -->
         <service
-            android:name=".service.ParentAccessibilityService"
+            android:name=".service.ChildAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="false">
             <intent-filter>
