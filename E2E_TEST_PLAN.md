@@ -92,13 +92,16 @@ For an app suitable for testing:
 3. Confirm Parent Web recent usage renders the new sessions.
 4. Check duration/time normalization for newly uploaded rows.
 
-## F. Protection-health/security alert
+## F. Protection-health/security alert and Activity Alerts
 
 1. With the Child paired, disable a required protection permission in a controlled test.
 2. Confirm Child detects degraded protection.
 3. Confirm `reportChildSecurityAlert` results in a parent notification record.
 4. Confirm Parent Web surfaces the notification.
-5. Restore the permission and verify the Child returns to a healthy operational state.
+5. Open Child `Activity & Alerts` and confirm the newly persisted local protection incident appears with its stored title/message and a recent timestamp rather than a sample string.
+6. Restore the permission and verify the Child returns to a healthy operational state.
+7. Trigger a local app-block/high-risk incident where practical, reopen `Activity & Alerts`, and confirm the newest incident appears first.
+8. On a fresh/cleared local database with no incidents, confirm the screen shows `No protection alerts yet.` rather than placeholder rows.
 
 ## G. Android 15/16 UI and back behavior
 

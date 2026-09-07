@@ -37,6 +37,18 @@
         android:textColor="#70767C"
         android:textSize="16sp" />
 
+    <TextView
+        android:id="@+id/tvEmptyAlerts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:gravity="center"
+        android:padding="20dp"
+        android:text="No protection alerts yet."
+        android:textColor="#70767C"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerAlerts"
         android:layout_width="match_parent"

@@ -17,6 +17,7 @@ The Android app is responsible for:
 - behavioral risk analysis and intervention selection;
 - accessibility/overlay protection support;
 - protection-health checks and local incident persistence;
+- live local Activity & Alerts history from persisted protection incidents;
 - heartbeat/status and usage synchronization;
 - Child Firebase Messaging token registration and time-request push updates;
 - consuming server-authorized Parent commands;
@@ -71,6 +72,8 @@ Accessibility use is gated by versioned local consent through `AccessibilityCons
 On Android 13/API 33 and later, permission setup requests `POST_NOTIFICATIONS` at Step 3. Notification denial does not block parental-control setup or foreground-service startup, but notification-drawer visibility is reduced.
 
 After authenticated monitoring startup, `ChildFcmTokenRegistrar` obtains the current Firebase Messaging token and writes only `fcmToken`/`fcmTokenUpdatedAt` to the paired Child document. `ChildFirebaseMessagingService` handles token rotation and foreground Child push callbacks. Current Child push delivery is supplemental for resolved time requests; Firestore listeners remain authoritative for applying approved time and all command/state transitions.
+
+`ActivityAlertsActivity` reads the existing local Room protection-incident store on resume and renders recent persisted incidents rather than placeholder strings. The screen shows a real empty/error state and does not introduce a second alert database or cloud feed.
 
 ## Repository structure
 
@@ -130,6 +133,7 @@ Useful Logcat tags during live Child testing include:
 - `CHILD_FCM`
 - `RemoteCommand`
 - `TimeRequest`
+- `ACTIVITY_ALERTS`
 
 ## Parent Web dashboard
 
@@ -185,11 +189,12 @@ Completed cleanup/modernization work includes:
 - foreground-service reclassification from `dataSync` to a declared parental-control `specialUse` service, with typed API 34+ promotion and removal of AlarmManager self-resurrection;
 - shared View-system edge-to-edge inset handling plus predictive-back-safe blocked-screen back consumption;
 - versioned Accessibility disclosure consent, consent-gated Accessibility event handling, narrowed Accessibility event scope, and Android 13+ notification-permission handling;
-- Child FCM token registration/rotation plus supplemental resolved-time-request notifications without moving authority away from Firestore.
+- Child FCM token registration/rotation plus supplemental resolved-time-request notifications without moving authority away from Firestore;
+- live Activity & Alerts rendering from the persisted protection-incident Room store instead of hard-coded samples.
 
-The Android platform migration is at the target-36 compile baseline. Before production distribution, the prepared runtime still needs live Android 15/16 device/emulator validation, especially foreground-service/boot recovery, edge-to-edge and back behavior, permission/disclosure flows, notification denial behavior, FCM device delivery, and tablet/foldable resizing.
+The Android platform migration is at the target-36 compile baseline. Before production distribution, the prepared runtime still needs live Android 15/16 device/emulator validation, especially foreground-service/boot recovery, edge-to-edge and back behavior, permission/disclosure flows, notification denial behavior, FCM device delivery, Activity Alerts rendering, and tablet/foldable resizing.
 
-Product work after that includes replacing sample Activity Alerts with live incident data, improving prototype diagnostics/observability where useful, and Parent Android app work only if still desired.
+Product work after that is primarily prototype-hardening: improve diagnostic/sync observability where it materially helps the MVP, and consider a Parent Android app only if that becomes a product requirement. The Parent Web dashboard remains the intended Parent surface.
 
 ## Google Play release boundary
 

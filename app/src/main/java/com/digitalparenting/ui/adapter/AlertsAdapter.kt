@@ -8,7 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.digitalparenting.R
 
 class AlertsAdapter(
-    private val items: List<String>
+    private var items: List<String> = emptyList()
 ) : RecyclerView.Adapter<AlertsAdapter.AlertViewHolder>() {
 
     class AlertViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -26,4 +26,9 @@ class AlertsAdapter(
     }
 
     override fun getItemCount(): Int = items.size
+
+    fun submitItems(newItems: List<String>) {
+        items = newItems
+        notifyDataSetChanged()
+    }
 }
