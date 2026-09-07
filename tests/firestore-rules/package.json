@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test firestore.rules.test.mjs"
+    "test": "node --test firestore.rules.test.mjs fcm-token.rules.test.mjs"
   },
   "dependencies": {
     "@firebase/rules-unit-testing": "5.0.2",

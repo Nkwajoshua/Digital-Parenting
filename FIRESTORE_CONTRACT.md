@@ -53,12 +53,13 @@ Child record linked by `redeemPairingCode`. The document id is the anonymous Chi
 - `deviceTime` (number, unix ms)
 - `accessibilityEnabled` (boolean)
 - `overlayPermissionGranted` (boolean)
-- `fcmToken` (string, rollout pending)
+- `fcmToken` (string, current Child Firebase Messaging registration token)
+- `fcmTokenUpdatedAt` (timestamp, server timestamp written when the Child registers or refreshes its token)
 
 ### Parent-managed settings
 Examples include `dailyLimitMinutes`, `bedtimeStart`, `bedtimeEnd`, `schoolModeEnabled`, `allowedApps`, `blockedApps`, `settings`, and `notes`.
 
-Clients cannot create child ownership documents. After server pairing, the matching anonymous Child may update only its permitted health/device-status fields and the owning Parent may update only permitted profile/settings fields.
+Clients cannot create child ownership documents. After server pairing, the matching anonymous Child may update only its permitted health/device-status fields, including its own FCM token metadata, and the owning Parent may update only permitted profile/settings fields. Parent clients and other Child identities cannot overwrite a Child's FCM token metadata.
 
 ## 3) `children/{childUid}/commands/{commandId}`
 Parent command queue consumed by the Child. Commands are created only by `sendCommand`.
@@ -140,7 +141,7 @@ Usage snapshots uploaded by the paired Child app.
 
 Parent clients normalize older rows that do not contain `durationSeconds` by deriving seconds from the legacy millisecond `duration` field. Numeric `startTime` and `endTime` values are converted to client-side Firestore `Timestamp` objects for display compatibility. This preserves existing stored history while establishing `durationSeconds` as the canonical unit for new parent-facing code.
 
-Only the paired Child may create its own sessions. The owning Parent and the Child may read them.
+Only the paired Child may create its own sessions. The owning Parent may read those sessions. Parent clients do not write them.
 
 ## 7) `parent_notifications/{notificationId}`
 Parent-facing notification feed created by Cloud Functions/Admin SDK.

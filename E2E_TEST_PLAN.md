@@ -55,12 +55,13 @@ On Android 13/API 33 or later:
 
 On Android 12L/API 32 or earlier, confirm Step 3 reports that the runtime notification permission is not required.
 
-### B4. Heartbeat
+### B4. Heartbeat and Child FCM registration
 
 1. Finish setup.
 2. Confirm the foreground monitoring service is active.
 3. Verify allowed Child status/heartbeat fields update on `children/{childUid}`.
-4. Verify Parent Web reflects fresh device state.
+4. Verify `children/{childUid}.fcmToken` becomes a non-empty current registration token and `fcmTokenUpdatedAt` is populated.
+5. Verify Parent Web reflects fresh device state.
 
 ## C. Remote commands
 
@@ -118,17 +119,23 @@ Run these checks on an Android 15 or 16 device/emulator, ideally with gesture na
 3. Confirm persisted block state remains consistent.
 4. Force-stop/relaunch in a controlled test and verify no duplicate ownership/pairing state is created.
 5. Recheck Parent heartbeat freshness after recovery.
+6. Confirm the current Child FCM token is present after recovery; if Firebase rotates the token, verify `fcmTokenUpdatedAt` advances and the new token replaces the old value.
 
-## I. FCM checks
+## I. Child FCM delivery
 
-Only run this section when FCM registration is implemented for the target client.
+Run with Child notifications enabled first, then repeat the denial case where applicable.
 
-1. Verify a valid current token is stored for the receiving client.
-2. Trigger a supported time-request notification event.
-3. Confirm push delivery.
-4. Confirm persisted Firestore state remains correct even if push delivery is delayed or absent.
+1. Confirm `children/{childUid}.fcmToken` and `fcmTokenUpdatedAt` are populated by the authenticated Child runtime.
+2. Trigger a Child time request and approve it from Parent Web.
+3. Confirm the backend resolves the Firestore request before push behavior is evaluated.
+4. With the Child app foregrounded, confirm `ChildFirebaseMessagingService` surfaces the `Time Request Update` through the Child Alerts channel and Logcat shows the `CHILD_FCM` receipt.
+5. Put the Child app in the background, resolve a second time request, and confirm Android/Firebase displays the notification payload.
+6. Confirm an approved request is applied from authoritative Firestore state and reaches `applied`; verify no FCM payload itself directly changes local limits or request status.
+7. Deny a request and confirm the Child receives the denial notification but does not extend time.
+8. Disable network temporarily during resolution, restore it later, and confirm Firestore state still converges correctly even if push is delayed or absent.
+9. On Android 13+, deny notification permission and repeat a resolution. Confirm Firestore application/state correctness is unaffected even though user-visible push notification delivery is suppressed.
 
-Until Child FCM registration/messaging support is complete, do not treat this section as a release gate for command correctness.
+FCM is not a command-authority channel. Command correctness must continue to pass through the Firestore command queue even when push delivery is unavailable.
 
 ## Useful verification paths
 

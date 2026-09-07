@@ -7,6 +7,7 @@ This folder contains the executable Firestore Security Rules suite for the Digit
 - Parent and Child Firebase Auth provider-role separation.
 - Parent ownership reads and authorization-safe child listing.
 - Child-only health/status updates versus Parent-only profile/settings updates.
+- Paired Child-only FCM token metadata updates, with Parent, cross-Child, and ownership-tampering writes denied.
 - Server-only child ownership creation and pairing-code writes.
 - Server-only command creation with Child-only pending-command acknowledgement.
 - Paired Child-only bounded time-request creation and approved-request application.
@@ -31,6 +32,8 @@ firebase emulators:exec --project demo-digital-parenting-rules --only firestore 
 ```
 
 The suite uses `@firebase/rules-unit-testing` mock authentication tokens so Parent identities use a non-anonymous provider and Child identities use the anonymous provider, matching the production rules model.
+
+The FCM-token test file uses a separate emulator project ID so its fixture resets cannot interfere with the broader authorization suite when Node executes test files concurrently.
 
 ## CI
 

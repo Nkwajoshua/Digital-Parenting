@@ -16,14 +16,12 @@ import com.digitalparenting.util.NotificationHelper
 import com.digitalparenting.util.ProtectionStateManager
 
 class MonitoringService : Service() {
-    // TODO(FCM): Register child device FCM token and store at children/{childUid}.fcmToken.
-    // TODO(FCM): Add FirebaseMessagingService to handle parent approval/denial push notifications.
-    // TODO(FCM): Add silent push wake-up hook to refresh pending commands when app process is idle.
 
     private lateinit var notificationHelper: NotificationHelper
     private val handler = Handler(Looper.getMainLooper())
 
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
+    private val fcmTokenRegistrar by lazy { ChildFcmTokenRegistrar() }
     private val blockingUiController by lazy { ChildBlockingUiController(this) }
     private val incidentRecorder by lazy {
         ChildIncidentRecorder(database.protectionIncidentDao())
@@ -94,6 +92,7 @@ class MonitoringService : Service() {
         ChildAuthCoordinator(
             onAuthenticated = {
                 childStatusPublisher.publishInitialStatus()
+                fcmTokenRegistrar.registerCurrentToken()
                 timeRequestController.start()
                 commandController.start()
             }
