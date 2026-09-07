@@ -22,13 +22,45 @@ This plan validates the live Parent Web + Firebase + Child Android system. It co
 7. In Firestore, verify `children/{childUid}` contains the expected server-established `parentUid` and `paired = true` state.
 8. Confirm the pairing code transitioned to `used`.
 
-## B. Child permissions and heartbeat
+## B. Child permission, disclosure, and heartbeat
 
-1. Complete the Child permission setup flow.
-2. Grant Usage Access, Accessibility, overlay, and notification permissions as applicable.
-3. Confirm the foreground monitoring service is active.
-4. Verify allowed Child status/heartbeat fields update on `children/{childUid}`.
-5. Verify Parent Web reflects fresh device state.
+### B1. Accessibility disclosure and consent
+
+1. Enter Step 1 of Child permission setup.
+2. Tap `Review & Enable` or `Review Disclosure`.
+3. Confirm the in-app disclosure explains that AccessibilityService observes the active app/window for parental-control enforcement, does not retrieve screen content, and does not send Accessibility event contents to the Parent account.
+4. Choose `Not now` or dismiss/back out of the disclosure. Confirm Android Accessibility settings do **not** open and Step 1 still requires disclosure review.
+5. Open the disclosure again and choose `I agree`. Confirm consent is recorded and Android Accessibility settings open when the service is not yet enabled.
+6. Enable the Digital Parenting accessibility service and return to the app.
+7. Confirm Step 1 reports `ENABLED` and can continue.
+8. Trigger a blocked-app scenario and verify foreground-window enforcement still works with the narrowed `typeWindowStateChanged` subscription.
+
+For upgrade-path validation, install/update from an older paired debug build that has no current disclosure-consent record. Relaunch the upgraded app without clearing data and confirm the paired Child is routed back to permission Step 1 instead of immediately starting the normal home flow.
+
+### B2. Overlay permission
+
+1. Continue to Step 2.
+2. Grant display-over-apps permission.
+3. Confirm the step reports `ENABLED` and proceeds to notifications.
+
+### B3. Notification permission
+
+On Android 13/API 33 or later:
+
+1. On first Step 3 visit with notifications not yet granted, confirm the button reads `Enable Notifications`.
+2. Allow the system notification permission. Confirm Step 3 reports `ENABLED` and setup can finish.
+3. Repeat on a fresh install/test state and deny or dismiss the notification permission. Confirm Step 3 reports notifications off and provides `Finish Without Notifications`.
+4. Finish setup after denial and confirm the foreground monitoring service still starts.
+5. Confirm foreground-service notification visibility is reduced in the notification drawer as expected when permission is denied, while Android still represents the foreground service through its system foreground-service controls.
+
+On Android 12L/API 32 or earlier, confirm Step 3 reports that the runtime notification permission is not required.
+
+### B4. Heartbeat
+
+1. Finish setup.
+2. Confirm the foreground monitoring service is active.
+3. Verify allowed Child status/heartbeat fields update on `children/{childUid}`.
+4. Verify Parent Web reflects fresh device state.
 
 ## C. Remote commands
 
@@ -132,6 +164,8 @@ npm run build
 ## Deployment
 
 Follow `DEPLOYMENT.md`. Deploy server-authoritative Functions and their compatible Firestore rules as one coordinated release.
+
+For Google Play distribution of the Child Android app, separately verify the current AccessibilityService declaration requirements, disclosure-demo video, privacy policy, Data Safety form, and the `specialUse` foreground-service declaration. Repository CI cannot approve those Play Console declarations.
 
 ## Pass criteria
 

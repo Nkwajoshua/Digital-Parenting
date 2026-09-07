@@ -63,6 +63,10 @@ Runtime recovery uses `START_STICKY` together with a guarded `BOOT_COMPLETED` re
 
 Layout-backed Child screens extend `EdgeToEdgeActivity`, which draws behind transparent system bars while applying system-bar, display-cutout, and IME safe insets to the Activity content container. Modern back dispatch is enabled application-wide, and `BlockedActivity` consumes system back through `OnBackPressedDispatcher` instead of the deprecated `onBackPressed()` override.
 
+Accessibility use is gated by versioned local consent through `AccessibilityConsentState`. The setup flow presents a separate in-app disclosure before opening Android Accessibility settings, and already-paired upgrades without the current consent version are routed back through Step 1. `ChildAccessibilityService` ignores events until current consent exists. Its metadata is explicitly non-accessibility-tool, subscribes only to `typeWindowStateChanged`, and keeps window-content retrieval disabled.
+
+On Android 13/API 33 and later, permission setup requests `POST_NOTIFICATIONS` at Step 3. Notification denial does not block parental-control setup or foreground-service startup, but notification-drawer visibility is reduced.
+
 ## Repository structure
 
 - `app/` - Child Android application
@@ -89,7 +93,7 @@ functions -> Firebase backend
 - Firebase project configuration
 - Gradle 8.11.1
 
-Android currently uses AGP 8.10.1 with `compileSdk 36` and intentionally remains on `targetSdk 34` until the remaining Android 15/16 runtime-compatibility work is complete.
+Android currently uses AGP 8.10.1 with `compileSdk 36` and intentionally remains on `targetSdk 34` until the final Android 15/16 target-runtime validation is complete.
 
 `gradle-wrapper.jar` is not currently committed, so CI provisions Gradle 8.11.1 directly. Until the wrapper is restored, use a local Gradle 8.11.1 installation rather than relying on `./gradlew`.
 
@@ -159,7 +163,7 @@ The blocking GitHub Actions workflow contains five jobs:
 
 The Android CI job **compiles** the instrumented-test APK. It does not currently boot an emulator or execute `connectedAndroidTest`.
 
-See `CI_AND_TESTING.md` and `TESTING.md` for exact commands and scope.
+The current Android instrumented inventory is 18 methods across incident persistence, block-state recovery, and Accessibility consent-state coverage. See `TESTING.md` for scope and execution commands.
 
 ## Current architecture status
 
@@ -173,9 +177,14 @@ Completed cleanup/modernization work includes:
 - API-36-capable Android build tooling while retaining target-34 runtime behavior;
 - persisted block-state recovery that can be hydrated by AccessibilityService independently of `MonitoringService` startup;
 - foreground-service reclassification from `dataSync` to a declared parental-control `specialUse` service, with typed API 34+ promotion and removal of AlarmManager self-resurrection;
-- shared View-system edge-to-edge inset handling plus predictive-back-safe blocked-screen back consumption.
+- shared View-system edge-to-edge inset handling plus predictive-back-safe blocked-screen back consumption;
+- versioned Accessibility disclosure consent, consent-gated Accessibility event handling, narrowed Accessibility event scope, and Android 13+ notification-permission handling.
 
-The next engineering work should focus on the remaining Android runtime modernization: notification permission/disclosure flows, final `targetSdk 36` validation, Android FCM registration/delivery, and remaining Child UI correctness.
+The next Android platform milestone is final `targetSdk 36` validation on the now-prepared runtime surfaces. Product/platform work after that includes Android FCM registration/delivery, live Activity Alerts data, Parent Android app work if still desired, and broader real-device/OEM validation.
+
+## Google Play release boundary
+
+The repository implements the in-app Accessibility disclosure/consent mechanics required for a non-accessibility-tool use case, but repository code and CI do not complete or approve Google Play policy review. A Play release still requires accurate AccessibilityService declarations in Play Console, the required disclosure demonstration/review artifacts, an accurate privacy policy and Data Safety submission, and review of the `specialUse` foreground-service declaration.
 
 ## Documentation
 
@@ -200,6 +209,7 @@ Changes should preserve:
 - Parent/Child authorization boundaries;
 - callable ownership/control transitions;
 - Child protection/enforcement behavior unless intentionally changed;
+- explicit Accessibility disclosure/consent before Accessibility event handling;
 - the five blocking CI jobs;
 - Room schema compatibility unless a migration is explicitly planned and tested.
 

@@ -3,6 +3,7 @@ package com.digitalparenting.service
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import com.digitalparenting.data.BlockStateManager
+import com.digitalparenting.util.AccessibilityConsentState
 import com.digitalparenting.util.ProtectionStateManager
 
 class ChildAccessibilityService : AccessibilityService() {
@@ -11,11 +12,14 @@ class ChildAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        ProtectionStateManager.hydrateBlockState(this)
+        if (AccessibilityConsentState.hasCurrentConsent(this)) {
+            ProtectionStateManager.hydrateBlockState(this)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        if (!AccessibilityConsentState.hasCurrentConsent(this)) return
 
         val packageName = event.packageName?.toString() ?: return
 
