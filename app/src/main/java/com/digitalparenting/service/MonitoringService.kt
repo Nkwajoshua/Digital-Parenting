@@ -26,7 +26,6 @@ import com.digitalparenting.data.UserProfile
 import com.digitalparenting.data.PredictionRecordEntity
 import com.digitalparenting.data.local.AppDatabase
 import com.digitalparenting.data.local.ProtectionIncidentEntity
-import com.digitalparenting.data.local.AppLimit
 import android.app.ActivityManager
 import com.digitalparenting.data.repository.UsageSyncRepository
 import com.digitalparenting.data.local.AppLimitDao
@@ -35,7 +34,6 @@ import com.digitalparenting.data.local.AppSessionEntity
 import com.digitalparenting.data.local.AppUsageStats
 import com.digitalparenting.data.local.BehaviorRecordDao
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.ListenerRegistration
 import com.digitalparenting.data.local.UserProfileDao
 import com.digitalparenting.ui.BlockActivity
 import com.digitalparenting.ui.BlockedActivity
@@ -43,8 +41,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import com.google.firebase.firestore.FirebaseFirestore
 
 class MonitoringService : Service() {
     // TODO(FCM): Register child device FCM token and store at children/{childUid}.fcmToken.
@@ -74,8 +70,17 @@ class MonitoringService : Service() {
             onBlockRequested = ::launchBlockedScreen
         )
     }
-    private var timeRequestListener: ListenerRegistration? = null
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private val timeRequestController by lazy {
+        ChildTimeRequestController(
+            limitDao = limitDao,
+            onTimeApplied = { approvedMinutes, appName ->
+                notificationHelper.showChildAlert(
+                    "Extra Time Approved",
+                    "$approvedMinutes minutes added for $appName"
+                )
+            }
+        )
+    }
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
 
     private lateinit var database: AppDatabase
@@ -138,7 +143,7 @@ class MonitoringService : Service() {
             if (user != null) {
                 Log.d("CHILD_AUTH", "MonitoringService auth ready UID=${user.uid}")
                 childStatusPublisher.publishInitialStatus()
-                startApprovedTimeRequestListener()
+                timeRequestController.start()
                 commandController.start()
             } else {
                 Log.w("CHILD_AUTH", "MonitoringService auth unavailable; retrying anonymous sign-in")
@@ -158,8 +163,7 @@ class MonitoringService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        timeRequestListener?.remove()
-        timeRequestListener = null
+        timeRequestController.stop()
         commandController.stop()
         childStatusPublisher.stop()
         authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
@@ -448,107 +452,6 @@ class MonitoringService : Service() {
             pm.getApplicationLabel(appInfo).toString()
         } catch (e: Exception) {
             packageName
-        }
-    }
-
-    private fun startApprovedTimeRequestListener() {
-        val user = FirebaseAuth.getInstance().currentUser
-        if (user == null) {
-            Log.d("TimeRequest", "No Firebase user. Skipping time request listener.")
-            return
-        }
-
-        timeRequestListener?.remove()
-
-        timeRequestListener = firestore.collection("time_requests")
-            .whereEqualTo("childUid", user.uid)
-            .whereEqualTo("status", "approved")
-            .addSnapshotListener { snapshots, error ->
-                if (error != null) {
-                    Log.e("TimeRequest", "Listener failed", error)
-                    return@addSnapshotListener
-                }
-
-                if (snapshots == null || snapshots.isEmpty) return@addSnapshotListener
-
-                for (doc in snapshots.documents) {
-                    val appPackage = doc.getString("appPackage") ?: continue
-                    val appName = doc.getString("appName") ?: appPackage
-                    val approvedMinutesLong = doc.getLong("approvedMinutes") ?: doc.getLong("requestedMinutes") ?: 0L
-                    val approvedMinutes = approvedMinutesLong.toInt()
-
-                    if (approvedMinutes <= 0) continue
-
-                    applyApprovedTimeRequest(
-                        requestId = doc.id,
-                        appPackage = appPackage,
-                        appName = appName,
-                        approvedMinutes = approvedMinutes
-                    )
-                }
-            }
-    }
-
-    private fun applyApprovedTimeRequest(
-        requestId: String,
-        appPackage: String,
-        appName: String,
-        approvedMinutes: Int
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val existingLimit = limitDao.getLimit(appPackage)
-
-                if (existingLimit != null) {
-                    val newMinutes = existingLimit.maxMinutes + approvedMinutes
-
-                    val updatedLimit = existingLimit.copy(
-                        appName = if (existingLimit.appName.isBlank()) appName else existingLimit.appName,
-                        maxMinutes = newMinutes,
-                        enabled = true
-                    )
-
-                    limitDao.setLimit(updatedLimit)
-
-                    Log.d(
-                        "TimeRequest",
-                        "Applied approved request: $appPackage +$approvedMinutes min -> $newMinutes min"
-                    )
-                } else {
-                    val newLimit = AppLimit(
-                        packageName = appPackage,
-                        appName = appName,
-                        maxMinutes = approvedMinutes,
-                        enabled = true,
-                        lastReset = System.currentTimeMillis()
-                    )
-
-                    limitDao.setLimit(newLimit)
-
-                    Log.d(
-                        "TimeRequest",
-                        "Created new limit from approved request: $appPackage = $approvedMinutes min"
-                    )
-                }
-
-                firestore.collection("time_requests")
-                    .document(requestId)
-                    .update(
-                        mapOf(
-                            "status" to "applied",
-                            "appliedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
-                        )
-                    )
-
-                withContext(Dispatchers.Main) {
-                    notificationHelper.showChildAlert(
-                        "Extra Time Approved",
-                        "$approvedMinutes minutes added for $appName"
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("TimeRequest", "Failed to apply approved request", e)
-            }
         }
     }
 
