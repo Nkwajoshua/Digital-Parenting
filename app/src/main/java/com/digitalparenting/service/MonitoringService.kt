@@ -45,7 +45,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FieldValue
 
 class MonitoringService : Service() {
     // TODO(FCM): Register child device FCM token and store at children/{childUid}.fcmToken.
@@ -69,9 +68,14 @@ class MonitoringService : Service() {
     private val usageSyncRepository = UsageSyncRepository()
     private val securityAlertReporter by lazy { ChildSecurityAlertReporter() }
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
+    private val commandController by lazy {
+        ChildCommandController(
+            limitDao = limitDao,
+            onBlockRequested = ::launchBlockedScreen
+        )
+    }
     private var timeRequestListener: ListenerRegistration? = null
     private val firestore by lazy { FirebaseFirestore.getInstance() }
-    private var commandListener: ListenerRegistration? = null
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
 
     private lateinit var database: AppDatabase
@@ -135,7 +139,7 @@ class MonitoringService : Service() {
                 Log.d("CHILD_AUTH", "MonitoringService auth ready UID=${user.uid}")
                 childStatusPublisher.publishInitialStatus()
                 startApprovedTimeRequestListener()
-                startRemoteCommandListener()
+                commandController.start()
             } else {
                 Log.w("CHILD_AUTH", "MonitoringService auth unavailable; retrying anonymous sign-in")
                 FirebaseAuth.getInstance().signInAnonymously()
@@ -156,8 +160,7 @@ class MonitoringService : Service() {
         super.onDestroy()
         timeRequestListener?.remove()
         timeRequestListener = null
-        commandListener?.remove()
-        commandListener = null
+        commandController.stop()
         childStatusPublisher.stop()
         authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
         authStateListener = null
@@ -547,149 +550,6 @@ class MonitoringService : Service() {
                 Log.e("TimeRequest", "Failed to apply approved request", e)
             }
         }
-    }
-
-    private fun startRemoteCommandListener() {
-        val user = FirebaseAuth.getInstance().currentUser
-        if (user == null) {
-            Log.d("RemoteCommand", "No Firebase user. Skipping command listener.")
-            return
-        }
-
-        commandListener?.remove()
-
-        commandListener = firestore
-            .collection("children")
-            .document(user.uid)
-            .collection("commands")
-            .whereEqualTo("status", "pending")
-            .addSnapshotListener { snapshots, error ->
-                if (error != null) {
-                    Log.e("RemoteCommand", "Command listener failed", error)
-                    return@addSnapshotListener
-                }
-
-                if (snapshots == null || snapshots.isEmpty) return@addSnapshotListener
-
-                for (doc in snapshots.documents) {
-                    val commandId = doc.id
-                    val type = doc.getString("type") ?: continue
-                    val appPackage = doc.getString("appPackage") ?: ""
-                    val appName = doc.getString("appName") ?: appPackage
-                    val reason = doc.getString("reason") ?: "Blocked by parent"
-                    val maxMinutes = (doc.getLong("maxMinutes") ?: 0L).toInt()
-                    val enabled = doc.getBoolean("enabled") ?: true
-
-                    handleRemoteCommand(
-                        childUid = user.uid,
-                        commandId = commandId,
-                        type = type,
-                        appPackage = appPackage,
-                        appName = appName,
-                        reason = reason,
-                        maxMinutes = maxMinutes,
-                        enabled = enabled
-                    )
-                }
-            }
-    }
-
-    private fun handleRemoteCommand(
-        childUid: String,
-        commandId: String,
-        type: String,
-        appPackage: String,
-        appName: String,
-        reason: String,
-        maxMinutes: Int,
-        enabled: Boolean
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                when (type) {
-                    "block_app" -> {
-                        BlockStateManager.setBlocked(setOf(appPackage))
-                        launchBlockedScreen(
-                            appName = appName,
-                            appPackage = appPackage,
-                            reason = reason
-                        )
-                    }
-
-                    "unblock_app" -> {
-                        BlockStateManager.removeBlocked(appPackage)
-                    }
-
-                    "set_limit" -> {
-                        val existing = limitDao.getLimit(appPackage)
-
-                        val updatedLimit = if (existing != null) {
-                            existing.copy(
-                                appName = if (existing.appName.isBlank()) appName else existing.appName,
-                                maxMinutes = maxMinutes,
-                                enabled = enabled
-                            )
-                        } else {
-                            AppLimit(
-                                packageName = appPackage,
-                                appName = appName,
-                                maxMinutes = maxMinutes,
-                                enabled = enabled,
-                                lastReset = System.currentTimeMillis()
-                            )
-                        }
-
-                        limitDao.setLimit(updatedLimit)
-                    }
-
-                    else -> {
-                        markCommandFailed(
-                            childUid = childUid,
-                            commandId = commandId,
-                            errorMessage = "Unknown command type: $type"
-                        )
-                        return@launch
-                    }
-                }
-
-                markCommandHandled(childUid, commandId)
-
-            } catch (e: Exception) {
-                Log.e("RemoteCommand", "Failed to handle command $commandId", e)
-                markCommandFailed(
-                    childUid = childUid,
-                    commandId = commandId,
-                    errorMessage = e.message ?: "Unknown error"
-                )
-            }
-        }
-    }
-
-    private fun markCommandHandled(childUid: String, commandId: String) {
-        firestore.collection("children")
-            .document(childUid)
-            .collection("commands")
-            .document(commandId)
-            .update(
-                mapOf(
-                    "status" to "handled",
-                    "handledAt" to FieldValue.serverTimestamp()
-                )
-            )
-    }
-
-    private fun markCommandFailed(childUid: String, commandId: String, errorMessage: String) {
-        firestore.collection("children")
-            .document(childUid)
-            .collection("commands")
-            .document(commandId)
-            .update(
-                mapOf(
-                    "status" to "failed",
-                    "handledAt" to FieldValue.serverTimestamp(),
-                    "errorMessage" to errorMessage
-                )
-            )
     }
 
     private fun showBlockOverlay() {
