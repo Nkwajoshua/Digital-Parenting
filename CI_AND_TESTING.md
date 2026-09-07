@@ -1,53 +1,85 @@
 # CI and Testing
 
-## CI workflow
+Workflow: `.github/workflows/ci.yml`
 
-Workflow file: `.github/workflows/ci.yml`
+All five CI jobs are blocking on pull requests and pushes to `main`.
 
-The CI pipeline runs three jobs:
+## 1. Parent Dashboard Web
 
-1. **Parent Dashboard Web** *(blocking)*
-   - Directory: `parent-dashboard-web`
-   - Commands: `npm ci`, `npm run check:env`, `npm run build`
-   - Current status: Passing locally.
-2. **Firebase Functions** *(temporarily non-blocking)*
-   - Directory: `functions`
-   - Commands: `npm install --no-audit --no-fund`, `npm run check`
-   - Current status: Commands pass locally; job is marked `continue-on-error: true` to avoid blocking PRs while CI-only failures are investigated from GitHub logs.
-3. **Android Build** *(temporarily non-blocking)*
-   - Commands: wrapper integrity check + `./gradlew --no-daemon assembleDebug`
-   - Current status: Expected failure until `gradle/wrapper/gradle-wrapper.jar` is restored in git. This job stays `continue-on-error: true`.
+Working directory: `parent-dashboard-web`
 
-## Exact failure points currently known
+```bash
+npm ci
+npm run check:env
+npm run build
+```
 
-### Android Build
-- Failing command path in CI:
-  - Wrapper integrity step fails when `gradle/wrapper/gradle-wrapper.jar` is missing.
-  - `./gradlew --no-daemon assembleDebug` cannot run without that JAR.
-- This is expected and already documented.
+This validates deterministic web dependencies, Firebase environment shape, and the production Vite build.
 
-### Firebase Functions
-- Pipeline commands are:
-  - `npm install --no-audit --no-fund`
-  - `npm run check` (`node --check index.js`)
-- These pass locally in this environment.
-- If GitHub Actions still reports failures, they are currently treated as CI-environment/strictness issues until logs are reconciled.
+## 2. Firebase Functions
 
-## Local validation commands
+Working directory: `functions`
 
-### Parent web
-- `cd parent-dashboard-web && npm ci`
-- `cd parent-dashboard-web && npm run check:env`
-- `cd parent-dashboard-web && npm run build`
+```bash
+npm install --no-audit --no-fund
+npm run check
+```
 
-### Functions
-- `cd functions && npm install --no-audit --no-fund`
-- `cd functions && npm run check`
+`functions` does not currently commit a `package-lock.json`, so CI uses `npm install` rather than `npm ci`.
 
-### Android
-- `./gradlew assembleDebug`
+## 3. Firestore Authorization Tests
 
-## Expected Firebase env vars (parent dashboard)
+CI installs the rules-test package and runs the Firestore emulator suite:
+
+```bash
+npm --prefix tests/firestore-rules install --no-audit --no-fund
+npx --yes firebase-tools@15.29.0 emulators:exec \
+  --project demo-digital-parenting-rules \
+  --only firestore \
+  "npm --prefix tests/firestore-rules test"
+```
+
+This suite verifies Parent/Child client authorization boundaries and direct-write denials for server-authoritative operations.
+
+## 4. Callable Control Plane Tests
+
+CI runs Auth, Firestore, and Functions emulators together:
+
+```bash
+npm --prefix functions install --no-audit --no-fund
+npm --prefix tests/functions-integration install --no-audit --no-fund
+npx --yes firebase-tools@15.29.0 emulators:exec \
+  --project demo-digital-parenting-callables \
+  --only auth,firestore,functions \
+  "npm --prefix tests/functions-integration test"
+```
+
+This exercises callable role enforcement, ownership checks, pairing, commands, time-request resolution, and Child security-alert reporting.
+
+## 5. Android Build
+
+CI provisions JDK 17 and Gradle 8.5, then compiles both the Child app and instrumented-test APK:
+
+```bash
+gradle --no-daemon assembleDebug
+gradle --no-daemon assembleDebugAndroidTest
+```
+
+`gradle-wrapper.jar` is not committed, so CI intentionally uses the provisioned Gradle installation.
+
+### Important Android test boundary
+
+`assembleDebugAndroidTest` proves that `androidTest` sources and dependencies compile. CI does **not** currently launch an emulator or execute the instrumented test methods.
+
+To execute them locally on a connected Android device/emulator:
+
+```bash
+gradle --no-daemon connectedAndroidTest
+```
+
+## Parent Web environment variables
+
+The dashboard expects:
 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
@@ -56,4 +88,8 @@ The CI pipeline runs three jobs:
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
-`check:env` intentionally warns (without failing) if `.env` is absent, so CI can inject secrets.
+## Merge standard
+
+Do not describe a branch as verified until all five CI jobs are green on the exact pull-request head intended for merge. For Android changes, confirm that the Android job completed both APK compilation steps.
+
+A green instrumented-test APK compile must not be reported as proof that device tests executed.
