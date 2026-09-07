@@ -4,7 +4,7 @@ This file lists unresolved current constraints. Completed Phase 2-5 migrations a
 
 ## Build and dependency reproducibility
 
-- `gradle-wrapper.jar` is not committed. Blocking Android CI provisions Gradle 8.5 explicitly. Local developers need a compatible Gradle installation until the wrapper is restored.
+- Android now uses AGP 8.10.1 with `compileSdk 36`, and CI provisions Gradle 8.11.1. `gradle/wrapper/gradle-wrapper.properties` is aligned to Gradle 8.11.1, but `gradle-wrapper.jar` is still not committed. Local developers therefore need a compatible Gradle installation until the wrapper is fully restored.
 - `functions/` does not currently commit a `package-lock.json`, so Functions and callable CI install dependencies with `npm install` rather than deterministic `npm ci`.
 
 ## Android automated testing
@@ -15,7 +15,7 @@ This file lists unresolved current constraints. Completed Phase 2-5 migrations a
 
 ## Android platform/runtime
 
-- The Child Android app still targets API 34. API-level/lifecycle modernization is required before treating the app as Play-release ready for newer Android requirements.
+- The Child Android app compiles against API 36 but intentionally still targets API 34. The target remains pinned until the Phase 6 foreground-service, enforcement-recovery, edge-to-edge, predictive-back, notification-permission, and Accessibility disclosure work is completed and validated.
 - Long-running foreground monitoring, accessibility enforcement, OEM background restrictions, permission recovery, and process-death behavior still need broader real-device validation.
 - Android Child FCM token registration/messaging support is incomplete. Backend FCM attempts exist for time-request events, but push delivery is not yet a fully verified Child delivery channel.
 
