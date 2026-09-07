@@ -58,14 +58,14 @@ This exercises callable role enforcement, ownership checks, pairing, commands, t
 
 ## 5. Android Build
 
-CI provisions JDK 17 and Gradle 8.5, then compiles both the Child app and instrumented-test APK:
+CI provisions JDK 17 and Gradle 8.11.1, then compiles both the Child app and instrumented-test APK. The project uses AGP 8.10.1, `compileSdk 36`, and intentionally remains on `targetSdk 34` until the later Phase 6 runtime-compatibility slices are complete.
 
 ```bash
 gradle --no-daemon assembleDebug
 gradle --no-daemon assembleDebugAndroidTest
 ```
 
-`gradle-wrapper.jar` is not committed, so CI intentionally uses the provisioned Gradle installation.
+`gradle-wrapper.jar` is not committed, so CI intentionally uses the provisioned Gradle installation. `gradle/wrapper/gradle-wrapper.properties` is aligned to Gradle 8.11.1 for the eventual wrapper restoration.
 
 ### Important Android test boundary
 
