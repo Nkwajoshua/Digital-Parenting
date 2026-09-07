@@ -5,13 +5,12 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 
-class RequestMoreTimeActivity : AppCompatActivity() {
+class RequestMoreTimeActivity : EdgeToEdgeActivity() {
 
     private var selectedMinutes = 15
 

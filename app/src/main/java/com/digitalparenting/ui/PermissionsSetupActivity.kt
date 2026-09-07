@@ -7,11 +7,10 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
 import com.digitalparenting.service.MonitoringService
 
-class PermissionsSetupActivity : AppCompatActivity() {
+class PermissionsSetupActivity : EdgeToEdgeActivity() {
 
     companion object {
         const val EXTRA_STEP = "extra_step"

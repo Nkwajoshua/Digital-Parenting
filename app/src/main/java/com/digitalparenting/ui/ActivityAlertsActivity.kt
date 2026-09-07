@@ -2,13 +2,12 @@ package com.digitalparenting.ui
 
 import android.os.Bundle
 import android.widget.ImageButton
-import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.digitalparenting.R
 import com.digitalparenting.ui.adapter.AlertsAdapter
 
-class ActivityAlertsActivity : AppCompatActivity() {
+class ActivityAlertsActivity : EdgeToEdgeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

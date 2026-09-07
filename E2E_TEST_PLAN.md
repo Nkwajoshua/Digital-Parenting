@@ -67,7 +67,19 @@ For an app suitable for testing:
 4. Confirm Parent Web surfaces the notification.
 5. Restore the permission and verify the Child returns to a healthy operational state.
 
-## G. Restart/resilience checks
+## G. Android 15/16 UI and back behavior
+
+Run these checks on an Android 15 or 16 device/emulator, ideally with gesture navigation enabled.
+
+1. Open Welcome, Pairing, Permissions Setup, Home Status, Diagnostics, Activity Alerts, Blocked, and Request More Time screens.
+2. Confirm headers, buttons, text, and scrollable content are not obscured by status/navigation bars or a display cutout.
+3. On Pairing and other text-entry screens, open the keyboard and confirm the focused input/action controls remain visible above the IME.
+4. Use the system back gesture on ordinary screens and confirm normal Activity navigation still works.
+5. Trigger `BlockedActivity`, then use the system back gesture and hardware/software back where available. Confirm the blocked screen consumes the action and cannot be dismissed through back navigation.
+6. Confirm the explicit Request More Time action still opens from the blocked screen.
+7. Rotate or change window size where supported and recheck safe insets.
+
+## H. Restart/resilience checks
 
 1. Reboot the Child device.
 2. Confirm monitoring restarts as expected after boot.
@@ -75,7 +87,7 @@ For an app suitable for testing:
 4. Force-stop/relaunch in a controlled test and verify no duplicate ownership/pairing state is created.
 5. Recheck Parent heartbeat freshness after recovery.
 
-## H. FCM checks
+## I. FCM checks
 
 Only run this section when FCM registration is implemented for the target client.
 
@@ -100,7 +112,7 @@ Use the Firebase Console only for inspection/debugging. Do not use manual Firest
 
 ## Build commands
 
-Because `gradle-wrapper.jar` is currently absent from the repository, use Gradle 8.5 directly unless the wrapper has been restored:
+Because `gradle-wrapper.jar` is currently absent from the repository, use Gradle 8.11.1 directly unless the wrapper has been restored:
 
 ```bash
 gradle --no-daemon assembleDebug

@@ -3,10 +3,9 @@ package com.digitalparenting.ui
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
-import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
 
-class WelcomeActivity : AppCompatActivity() {
+class WelcomeActivity : EdgeToEdgeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

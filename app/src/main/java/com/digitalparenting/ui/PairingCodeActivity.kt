@@ -8,13 +8,12 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 
-class PairingCodeActivity : AppCompatActivity() {
+class PairingCodeActivity : EdgeToEdgeActivity() {
 
     private lateinit var pairingCodeInput: EditText
     private lateinit var linkButton: Button

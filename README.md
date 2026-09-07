@@ -61,6 +61,8 @@ Persisted block state is shared through `ProtectionStateManager`. Both the monit
 
 Runtime recovery uses `START_STICKY` together with a guarded `BOOT_COMPLETED` receiver for authenticated, paired Child devices. The previous `onTaskRemoved()` AlarmManager self-restart path has been removed.
 
+Layout-backed Child screens extend `EdgeToEdgeActivity`, which draws behind transparent system bars while applying system-bar, display-cutout, and IME safe insets to the Activity content container. Modern back dispatch is enabled application-wide, and `BlockedActivity` consumes system back through `OnBackPressedDispatcher` instead of the deprecated `onBackPressed()` override.
+
 ## Repository structure
 
 - `app/` - Child Android application
@@ -170,9 +172,10 @@ Completed cleanup/modernization work includes:
 - CI protection for the Android instrumented-test source set;
 - API-36-capable Android build tooling while retaining target-34 runtime behavior;
 - persisted block-state recovery that can be hydrated by AccessibilityService independently of `MonitoringService` startup;
-- foreground-service reclassification from `dataSync` to a declared parental-control `specialUse` service, with typed API 34+ promotion and removal of AlarmManager self-resurrection.
+- foreground-service reclassification from `dataSync` to a declared parental-control `specialUse` service, with typed API 34+ promotion and removal of AlarmManager self-resurrection;
+- shared View-system edge-to-edge inset handling plus predictive-back-safe blocked-screen back consumption.
 
-The next engineering work should focus on the remaining Android runtime modernization: edge-to-edge and predictive-back compatibility, notification permission/disclosure flows, final `targetSdk 36` validation, Android FCM registration/delivery, and remaining Child UI correctness.
+The next engineering work should focus on the remaining Android runtime modernization: notification permission/disclosure flows, final `targetSdk 36` validation, Android FCM registration/delivery, and remaining Child UI correctness.
 
 ## Documentation
 
