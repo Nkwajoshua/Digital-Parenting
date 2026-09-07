@@ -39,22 +39,15 @@ export default function ChildrenPage() {
     return { ...child, updated, heartbeat, presence }
   }), [children, now])
 
-  return <div>
-    <h1>Child Devices</h1>
-    <p className="muted">Presence uses heartbeat freshness: ONLINE &lt;2m, STALE &gt;2m, OFFLINE &gt;5m.</p>
-    {loading && <p>Loading devices...</p>}
-    {!loading && error && <p className="danger">Listener error: {error}</p>}
-    {!loading && !error && rows.length === 0 && <div className="card"><p>No child devices found yet. Connect a child app and sync again.</p></div>}
-    {rows.map((child) => (
-      <div className="card" key={child.id}>
-        <h3>{child.deviceName || child.id}</h3>
-        <p>Platform: {child.platform || 'unknown'}</p>
-        <p>Monitoring: <span className={child.monitoringActive ? 'badge active' : 'badge offline'}>{child.monitoringActive ? 'Active' : 'Inactive'}</span></p>
-        <p>Connection: <span className={`badge ${child.presence === 'ONLINE' ? 'active' : child.presence === 'STALE' ? 'warn-badge' : 'offline'}`}>{child.presence}</span></p><p>Latest heartbeat: {child.heartbeat?.toLocaleString?.() || 'N/A'}</p><p>Battery: {typeof child.batteryLevel === 'number' ? `${child.batteryLevel}%` : 'N/A'} {child.charging ? '(charging)' : ''}</p>
-        <p>Updated: {child.updated?.toLocaleString?.() || 'N/A'}</p>
-        <p>UID: <code>{child.id}</code></p>
-        <Link to={`/children/${child.id}`}>Open Details</Link>
-      </div>
-    ))}
+  return <div><header className="page-header"><div><span className="eyebrow">Devices</span><h1>Child devices</h1><p>See protection health, connectivity, and device details at a glance.</p></div><span className="badge offline">{rows.length} connected</span></header>
+    <div className="presence-legend"><span><i className="dot online" />Online: heartbeat within 2 minutes</span><span><i className="dot stale" />Stale: 2–5 minutes</span><span><i className="dot offline-dot" />Offline: over 5 minutes</span></div>
+    {loading && <div className="device-grid" aria-label="Loading devices"><div className="card skeleton-card" /><div className="card skeleton-card" /></div>}
+    {!loading && error && <div className="alert error" role="alert"><strong>We couldn’t load your devices.</strong><span>{error}</span></div>}
+    {!loading && !error && rows.length === 0 && <div className="card empty-state"><span>◇</span><h2>No Child devices yet</h2><p>Go to Overview and generate a pairing code to connect the first device.</p><Link className="button-link" to="/">Go to overview</Link></div>}
+    <section className="device-grid">{rows.map((child) => <article className="card device-card" key={child.id}>
+      <div className="device-card-top"><span className="device-avatar large">{(child.deviceName || 'D')[0].toUpperCase()}</span><div><h2>{child.deviceName || 'Child device'}</h2><p>{child.platform || 'Android'} · {child.appVersion ? `Version ${child.appVersion}` : 'Version unavailable'}</p></div><span className={`badge ${child.presence === 'ONLINE' ? 'active' : child.presence === 'STALE' ? 'warn-badge' : 'offline'}`}>{child.presence}</span></div>
+      <div className="device-stat-grid"><div><small>Protection</small><strong>{child.monitoringActive ? 'Active' : 'Inactive'}</strong></div><div><small>Battery</small><strong>{typeof child.batteryLevel === 'number' ? `${child.batteryLevel}%` : '—'} {child.charging ? '⚡' : ''}</strong></div><div><small>Last heartbeat</small><strong>{child.heartbeat?.toLocaleTimeString?.([], { hour: '2-digit', minute: '2-digit' }) || 'Never'}</strong></div></div>
+      <p className="device-updated">Last updated {child.updated?.toLocaleString?.() || 'not yet available'}</p><Link className="button-link wide" to={`/children/${child.id}`}>Open device details <span aria-hidden="true">→</span></Link>
+    </article>)}</section>
   </div>
 }

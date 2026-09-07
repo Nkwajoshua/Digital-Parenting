@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   approveTimeRequest,
   denyTimeRequest,
@@ -17,14 +17,14 @@ import { useAuth } from '../services/authContext'
 function AppControlForm({ values, onChange, onAction, busy }) {
   return <div>
     <div className="form-grid">
-      <input name="appName" placeholder="appName" value={values.appName} onChange={onChange} />
-      <input name="appPackage" placeholder="appPackage" value={values.appPackage} onChange={onChange} />
-      <input name="maxMinutes" type="number" min="1" placeholder="maxMinutes" value={values.maxMinutes} onChange={onChange} />
+      <label>App name<input name="appName" placeholder="e.g. Instagram" value={values.appName} onChange={onChange} /></label>
+      <label>Android package<input name="appPackage" placeholder="e.g. com.instagram.android" value={values.appPackage} onChange={onChange} /></label>
+      <label>Daily limit<input name="maxMinutes" type="number" min="1" placeholder="Minutes" value={values.maxMinutes} onChange={onChange} /></label>
     </div>
     <div className="button-row">
-      <button disabled={busy} onClick={() => onAction('block_app')}>Block App</button>
-      <button disabled={busy} onClick={() => onAction('unblock_app')}>Unblock App</button>
-      <button disabled={busy} onClick={() => onAction('set_limit')}>Set Limit</button>
+      <button className="danger" disabled={busy} onClick={() => onAction('block_app')}>{busy ? 'Sending…' : 'Block app'}</button>
+      <button className="secondary" disabled={busy} onClick={() => onAction('unblock_app')}>Unblock app</button>
+      <button disabled={busy} onClick={() => onAction('set_limit')}>Set daily limit</button>
     </div>
   </div>
 }
@@ -115,11 +115,12 @@ export default function ChildDetailPage() {
   }
 
   return <div>
-    <h1>Child Detail</h1>
-    {feedback && <p className="muted">{feedback}</p>}
+    <Link className="back-link" to="/children">← All devices</Link>
+    <header className="page-header"><div><span className="eyebrow">Device management</span><h1>{selectedChild?.deviceName || 'Child device'}</h1><p>Review live status, set app boundaries, and respond to requests.</p></div><span className={selectedChild?.monitoringActive ? 'badge active' : 'badge offline'}>{selectedChild?.monitoringActive ? 'Protection active' : 'Protection inactive'}</span></header>
+    {feedback && <div className={`alert ${feedback.includes('failed') || feedback.includes('required') ? 'error' : 'success'}`} role="status">{feedback}</div>}
 
     <div className="card">
-      <h3>Selected Child</h3>
+      <div className="section-heading"><div><h2>Device overview</h2><p>Latest information received from the Child app.</p></div></div>
       <p><b>Name:</b> {selectedChild?.deviceName || 'Unknown device'}</p>
       <p><b>Platform:</b> {selectedChild?.platform || 'unknown'}</p>
       <p><b>Monitoring:</b> <span className={selectedChild?.monitoringActive ? 'badge active' : 'badge offline'}>{selectedChild?.monitoringActive ? 'Active' : 'Inactive'}</span></p>
@@ -128,16 +129,16 @@ export default function ChildDetailPage() {
     </div>
 
     <div className="card">
-      <h3>Quick App Controls</h3>
+      <h2>App controls</h2><p className="muted">Enter the app identity exactly as installed on the Child device.</p>
       <AppControlForm values={form} onChange={onFormChange} onAction={onCommandAction} busy={commandBusy} />
     </div>
 
-    <div className="card"><h3>Command History (latest 10)</h3>
+    <div className="card"><h2>Recent commands</h2><p className="muted">The 10 most recent actions sent to this device.</p>
       {commands.length === 0 ? <p>No commands yet.</p> : commands.map((cmd) => <div key={cmd.id} className="row wrap"><span><b>{cmd.type}</b> • {cmd.appName || 'n/a'} • {cmd.appPackage || 'n/a'}</span><span className={`badge ${cmd.status === 'failed' ? 'danger-badge' : cmd.status === 'handled' ? 'active' : 'offline'}`}>{cmd.status || 'pending'}</span><span>{cmd.createdAt?.toDate?.()?.toLocaleString?.() || 'N/A'}</span><span>{cmd.handledAt?.toDate?.()?.toLocaleString?.() || '-'}</span><span>{cmd.errorMessage || ''}</span></div>)}
       <p className="muted">Latest command status: {latestCommand?.status || 'N/A'}{commandLatency !== null ? ` · latency ${commandLatency}s` : ''}</p>
     </div>
 
-    <div className="card"><h3>Pending Time Requests</h3>
+    <div className="card"><h2>Pending time requests</h2>
       {requests.length === 0 ? <p>No pending requests.</p> : requests.map((req) => {
         const isBusy = requestBusyId === req.id
         return <div key={req.id} className="row wrap"><span>{req.deviceName || selectedChild?.deviceName || 'Device'} • {req.appName} • {req.requestedMinutes}m • {req.createdAt?.toDate?.()?.toLocaleString?.() || 'N/A'}</span>
@@ -149,7 +150,7 @@ export default function ChildDetailPage() {
       })}
     </div>
 
-    <div className="card"><h3>Recent Usage Preview</h3>
+    <div className="card"><h2>Recent app usage</h2>
       {sessions.length === 0 ? <p>No usage sessions found.</p> : sessions.map((s) => <div className="row wrap" key={s.id}><span>{s.appName || 'Unknown App'} ({s.appPackage || 'unknown.package'})</span><span>{s.duration || 0} sec</span><span>{s.startTime?.toDate?.()?.toLocaleString?.() || '-'} → {s.endTime?.toDate?.()?.toLocaleString?.() || '-'}</span></div>)}
     </div>
 
