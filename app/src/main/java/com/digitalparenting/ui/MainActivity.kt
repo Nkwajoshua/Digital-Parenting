@@ -6,6 +6,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.service.MonitoringService
+import com.digitalparenting.util.AccessibilityConsentState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -48,7 +49,16 @@ class MainActivity : AppCompatActivity() {
             .addOnSuccessListener { snapshot ->
                 val paired = snapshot.exists() && snapshot.getBoolean("paired") == true
 
-                if (paired) {
+                if (paired && !AccessibilityConsentState.hasCurrentConsent(this)) {
+                    Log.d(
+                        "CHILD_AUTH",
+                        "Paired child requires current Accessibility disclosure consent"
+                    )
+                    startActivity(
+                        Intent(this, PermissionsSetupActivity::class.java)
+                            .putExtra(PermissionsSetupActivity.EXTRA_STEP, 1)
+                    )
+                } else if (paired) {
                     Log.d("CHILD_AUTH", "Paired child detected; starting monitoring service")
                     startForegroundService(Intent(this, MonitoringService::class.java))
                     startActivity(Intent(this, HomeStatusActivity::class.java))
