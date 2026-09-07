@@ -36,7 +36,6 @@ This file lists unresolved current constraints. Completed migrations are intenti
 
 ## Child UI/product correctness
 
-- `ActivityAlertsActivity` currently renders hard-coded sample alert strings rather than live local/cloud incident data.
 - Some Child diagnostic/sync controls remain simple prototype behavior rather than production-grade observability/recovery tooling.
 - Local Room behavior/profile/prediction tables are retained for current persistence compatibility even where active runtime reads are limited. Removing tables would require an explicit Room schema/migration decision.
 
@@ -56,7 +55,7 @@ This file lists unresolved current constraints. Completed migrations are intenti
 ## Production readiness
 
 - Passing CI is necessary but not sufficient for a production release. The current five jobs prove web/functions builds, emulator-backed authorization/callable behavior, and target-36 Android app/test-APK compilation.
-- Production release still requires manual/live validation of pairing, disclosure/permission flows, command enforcement, time requests, Child FCM registration/delivery, usage sync, permission recovery, foreground-service recovery, edge-to-edge rendering, predictive-back behavior, tablet/foldable resizing, device restart/process-death behavior, and supported Android versions.
+- Production release still requires manual/live validation of pairing, disclosure/permission flows, command enforcement, time requests, Child FCM registration/delivery, usage sync, permission recovery, foreground-service recovery, Activity Alerts rendering, edge-to-edge rendering, predictive-back behavior, tablet/foldable resizing, device restart/process-death behavior, and supported Android versions.
 - Firebase deployment is manual. Rules and callable Functions that form the server-authoritative control plane should be deployed as a coordinated release rather than independently introducing an incompatible client/server boundary.
 
 ## Development-environment constraints
