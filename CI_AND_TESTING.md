@@ -58,7 +58,7 @@ This exercises callable role enforcement, ownership checks, pairing, commands, t
 
 ## 5. Android Build
 
-CI provisions JDK 17 and Gradle 8.11.1, then compiles both the Child app and instrumented-test APK. The project uses AGP 8.10.1, `compileSdk 36`, and intentionally remains on `targetSdk 34` until the later Phase 6 runtime-compatibility slices are complete.
+CI provisions JDK 17 and Gradle 8.11.1, then compiles both the Child app and instrumented-test APK. The project uses AGP 8.10.1 with both `compileSdk 36` and `targetSdk 36`.
 
 ```bash
 gradle --no-daemon assembleDebug
@@ -69,9 +69,11 @@ gradle --no-daemon assembleDebugAndroidTest
 
 ### Important Android test boundary
 
-`assembleDebugAndroidTest` proves that `androidTest` sources and dependencies compile. CI does **not** currently launch an emulator or execute the instrumented test methods.
+`assembleDebug` verifies the target-36 app compiles against the prepared Android 15/16 compatibility surface. `assembleDebugAndroidTest` proves that `androidTest` sources and dependencies compile.
 
-To execute them locally on a connected Android device/emulator:
+CI does **not** currently launch an emulator or execute the instrumented test methods. A green Android job therefore does not prove target-36 runtime behavior, Accessibility/notification dialogs, foreground-service recovery, edge-to-edge rendering, back gestures, or OEM behavior.
+
+To execute instrumented tests locally on a connected Android device/emulator:
 
 ```bash
 gradle --no-daemon connectedAndroidTest
@@ -92,4 +94,4 @@ The dashboard expects:
 
 Do not describe a branch as verified until all five CI jobs are green on the exact pull-request head intended for merge. For Android changes, confirm that the Android job completed both APK compilation steps.
 
-A green instrumented-test APK compile must not be reported as proof that device tests executed.
+A green target-36 build is compile proof, not live-device release proof. Use `E2E_TEST_PLAN.md` for Android 15/16 runtime validation before production distribution.
