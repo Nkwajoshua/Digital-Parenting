@@ -22,16 +22,14 @@ npm run dev
 
 ```bash
 cd functions
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund
 npm run check
 ```
-
-`npm run lint` currently only prints a placeholder message and is not a substantive lint gate.
 
 ## Firestore authorization tests
 
 ```bash
-npm --prefix tests/firestore-rules install --no-audit --no-fund
+npm --prefix tests/firestore-rules ci --no-audit --no-fund
 npx --yes firebase-tools@15.29.0 emulators:exec \
   --project demo-digital-parenting-rules \
   --only firestore \
@@ -41,8 +39,8 @@ npx --yes firebase-tools@15.29.0 emulators:exec \
 ## Callable control-plane tests
 
 ```bash
-npm --prefix functions install --no-audit --no-fund
-npm --prefix tests/functions-integration install --no-audit --no-fund
+npm --prefix functions ci --no-audit --no-fund
+npm --prefix tests/functions-integration ci --no-audit --no-fund
 npx --yes firebase-tools@15.29.0 emulators:exec \
   --project demo-digital-parenting-callables \
   --only auth,firestore,functions \
@@ -51,24 +49,15 @@ npx --yes firebase-tools@15.29.0 emulators:exec \
 
 ## Android Child app
 
-Android currently uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 34`. The target SDK is intentionally pinned until the remaining Phase 6 runtime-compatibility work is complete.
-
-`gradle-wrapper.jar` is currently absent. Use Gradle 8.11.1 directly unless the wrapper has been fully restored.
+Android uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 36`. The complete Gradle 8.11.1 wrapper is committed.
 
 ```bash
-# App APK
-gradle --no-daemon assembleDebug
-
-# Instrumented-test APK compile
-gradle --no-daemon assembleDebugAndroidTest
-
-# Install app on connected device/emulator
-gradle --no-daemon installDebug
-
-# Execute instrumented tests on connected device/emulator
-gradle --no-daemon connectedAndroidTest
+./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon assembleDebugAndroidTest
+./gradlew --no-daemon installDebug
+./gradlew --no-daemon connectedAndroidTest
 ```
 
 ## Firebase deployment
 
-Follow `DEPLOYMENT.md`. For control-plane changes, do not casually deploy stricter rules independently of their compatible Functions/client behavior.
+Follow `DEPLOYMENT.md`. For control-plane changes, deploy compatible Functions and Firestore rules together.
