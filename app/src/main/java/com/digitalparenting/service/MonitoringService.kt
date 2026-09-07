@@ -70,6 +70,7 @@ class MonitoringService : Service() {
     }
     private val commandController by lazy {
         ChildCommandController(
+            context = this,
             limitDao = limitDao,
             onBlockRequested = blockingUiController::launchBlockedScreen
         )
@@ -118,7 +119,7 @@ class MonitoringService : Service() {
         behaviorController.loadState()
         authCoordinator.start()
 
-        restoreProtectionState()
+        ProtectionStateManager.hydrateBlockState(this)
         updateForegroundNotification()
         startMonitoring()
         childStatusPublisher.start()
@@ -178,16 +179,6 @@ class MonitoringService : Service() {
 
         protectionHealthController.verify()
         updateForegroundNotification()
-    }
-
-    private fun restoreProtectionState() {
-        val snapshot = ProtectionStateManager.restoreBlockState(this)
-        if (snapshot.blockedPackages.isNotEmpty()) {
-            BlockStateManager.setBlocked(snapshot.blockedPackages)
-            snapshot.blockModes.forEach { (pkg, mode) ->
-                BlockStateManager.setBlockMode(pkg, mode)
-            }
-        }
     }
 
     private fun updateForegroundNotification() {

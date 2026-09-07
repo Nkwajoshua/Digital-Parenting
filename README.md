@@ -55,7 +55,7 @@ Firestore rules deny the corresponding direct client writes. See `FIRESTORE_CONT
 - `ChildIncidentRecorder`
 - `ChildAccessibilityService`
 
-The split keeps Android lifecycle orchestration separate from identity, Firebase coordination, persistence, enforcement, behavior policy, and protection-health concerns.
+Persisted block state is shared through `ProtectionStateManager`. Both the monitoring runtime and AccessibilityService can hydrate the in-memory enforcement state, so accessibility enforcement no longer depends on `MonitoringService` being the component that restored the state first.
 
 ## Repository structure
 
@@ -77,13 +77,15 @@ functions -> Firebase backend
 
 ## Prerequisites
 
-- Android SDK
+- Android SDK including API 36
 - JDK 17 for Android builds
 - Node.js 20/npm for web and Firebase work
 - Firebase project configuration
-- Gradle 8.5
+- Gradle 8.11.1
 
-`gradle-wrapper.jar` is not currently committed, so CI provisions Gradle 8.5 directly. Until the wrapper is restored, use a local Gradle 8.5 installation rather than relying on `./gradlew`.
+Android currently uses AGP 8.10.1 with `compileSdk 36` and intentionally remains on `targetSdk 34` until the remaining Android 15/16 runtime-compatibility work is complete.
+
+`gradle-wrapper.jar` is not currently committed, so CI provisions Gradle 8.11.1 directly. Until the wrapper is restored, use a local Gradle 8.11.1 installation rather than relying on `./gradlew`.
 
 ## Child Android build
 
@@ -155,15 +157,17 @@ See `CI_AND_TESTING.md` and `TESTING.md` for exact commands and scope.
 
 ## Current architecture status
 
-Completed cleanup work includes:
+Completed cleanup/modernization work includes:
 
 - decomposition of the former `MonitoringService` monolith;
 - server-authoritative pairing, commands, Parent time-request resolution, and Child security alerts;
 - removal of the legacy Parent Android dashboard subtree;
 - residual Android dead-code and dependency cleanup;
-- CI protection for the Android instrumented-test source set.
+- CI protection for the Android instrumented-test source set;
+- API-36-capable Android build tooling while retaining target-34 runtime behavior;
+- persisted block-state recovery that can be hydrated by AccessibilityService independently of `MonitoringService` startup.
 
-The next engineering work should focus on product/runtime modernization rather than more broad deletion: API-level/lifecycle modernization, Android FCM registration and delivery support, Child UI correctness, and eventually a separate Parent Android application if mobile Parent support is required.
+The next engineering work should focus on Android runtime modernization: foreground-service classification/recovery behavior, edge-to-edge and predictive-back compatibility, notification permission/disclosure flows, final `targetSdk 36` validation, Android FCM registration/delivery, and remaining Child UI correctness.
 
 ## Documentation
 

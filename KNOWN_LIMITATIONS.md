@@ -1,22 +1,24 @@
 # Known Limitations
 
-This file lists unresolved current constraints. Completed Phase 2-5 migrations are intentionally not repeated as TODOs.
+This file lists unresolved current constraints. Completed Phase 2-6 migrations are intentionally not repeated as TODOs.
 
 ## Build and dependency reproducibility
 
-- Android now uses AGP 8.10.1 with `compileSdk 36`, and CI provisions Gradle 8.11.1. `gradle/wrapper/gradle-wrapper.properties` is aligned to Gradle 8.11.1, but `gradle-wrapper.jar` is still not committed. Local developers therefore need a compatible Gradle installation until the wrapper is fully restored.
+- Android uses AGP 8.10.1 with `compileSdk 36`, and CI provisions Gradle 8.11.1. `gradle/wrapper/gradle-wrapper.properties` is aligned to Gradle 8.11.1, but `gradle-wrapper.jar` is still not committed. Local developers therefore need a compatible Gradle installation until the wrapper is fully restored.
 - `functions/` does not currently commit a `package-lock.json`, so Functions and callable CI install dependencies with `npm install` rather than deterministic `npm ci`.
 
 ## Android automated testing
 
 - Blocking CI compiles both `assembleDebug` and `assembleDebugAndroidTest`.
 - CI does **not** currently execute `connectedAndroidTest` on an emulator/device.
-- The retained 13 Android instrumented methods cover Room protection-incident persistence, not full foreground-service, enforcement, cloud, or Parent UI behavior.
+- The retained 16 Android instrumented methods cover Room protection-incident persistence plus persisted block-state recovery. They do not prove full foreground-service, Accessibility event delivery, cloud delivery, or Parent UI behavior.
 
 ## Android platform/runtime
 
-- The Child Android app compiles against API 36 but intentionally still targets API 34. The target remains pinned until the Phase 6 foreground-service, enforcement-recovery, edge-to-edge, predictive-back, notification-permission, and Accessibility disclosure work is completed and validated.
-- Long-running foreground monitoring, accessibility enforcement, OEM background restrictions, permission recovery, and process-death behavior still need broader real-device validation.
+- The Child Android app compiles against API 36 but intentionally still targets API 34. The target remains pinned until the remaining Phase 6 foreground-service, edge-to-edge, predictive-back, notification-permission, and Accessibility disclosure work is completed and validated.
+- Persisted block state can now hydrate independently when `ChildAccessibilityService` connects, and Parent block/unblock commands persist their local block-state mutation. Real-device process-death and OEM recovery still require validation.
+- The current block-state model does not distinguish the ownership/source of a block (for example Parent command vs behavior-policy block). Changing that policy model is intentionally outside the state-recovery slice and should be handled explicitly if source-specific precedence is required.
+- Long-running foreground monitoring, OEM background restrictions, permission recovery, and process-death behavior still need broader real-device validation.
 - Android Child FCM token registration/messaging support is incomplete. Backend FCM attempts exist for time-request events, but push delivery is not yet a fully verified Child delivery channel.
 
 ## Child UI/product correctness
