@@ -44,8 +44,8 @@ Thumbs.db
 **/androidTest/outputs/
 **/test-results/
 
-# Ignore Gradle wrapper downloads
-gradle/wrapper/gradle-wrapper.jar
+# The Gradle wrapper JAR is a reproducibility artifact and must stay tracked.
+!gradle/wrapper/gradle-wrapper.jar
 
 # Environment and Firebase secrets
 .env
