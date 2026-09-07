@@ -23,10 +23,21 @@ class MonitoringService : Service() {
         @Volatile
         var isRunning: Boolean = false
             private set
+
+        private const val MONITORING_INTERVAL_MILLIS = 2_000L
     }
 
     private lateinit var notificationHelper: NotificationHelper
     private val handler = Handler(Looper.getMainLooper())
+
+    private val monitoringRunnable = object : Runnable {
+        override fun run() {
+            if (!isRunning) return
+            foregroundSessionTracker.checkForForegroundApp()
+            enforceBlockState()
+            if (isRunning) handler.postDelayed(this, MONITORING_INTERVAL_MILLIS)
+        }
+    }
 
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
     private val fcmTokenRegistrar by lazy { ChildFcmTokenRegistrar() }
@@ -134,6 +145,7 @@ class MonitoringService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        handler.removeCallbacks(monitoringRunnable)
         timeRequestController.stop()
         commandController.stop()
         childStatusPublisher.stop()
@@ -152,13 +164,8 @@ class MonitoringService : Service() {
     }
 
     private fun startMonitoring() {
-        handler.post(object : Runnable {
-            override fun run() {
-                foregroundSessionTracker.checkForForegroundApp()
-                enforceBlockState()
-                handler.postDelayed(this, 2000)
-            }
-        })
+        handler.removeCallbacks(monitoringRunnable)
+        handler.post(monitoringRunnable)
     }
 
     private fun enforceBlockState() {
