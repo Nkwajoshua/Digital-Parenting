@@ -101,7 +101,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:text="Firebase"
+                android:text="Child Cloud Identity"
                 android:textColor="#8B9096"
                 android:textSize="15sp" />
 
@@ -134,7 +134,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:text="Device ID"
+                android:text="Child UID"
                 android:textColor="#8B9096"
                 android:textSize="15sp" />
 
@@ -150,7 +150,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:text="Last Check"
+                android:text="Last Successful Status Sync"
                 android:textColor="#8B9096"
                 android:textSize="15sp" />
 
