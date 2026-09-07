@@ -1,12 +1,46 @@
 # Known Limitations
 
-- `gradle-wrapper.jar` is still not committed. CI currently provisions Gradle 8.5 explicitly and the Android `assembleDebug` job is a blocking, verified-green gate. The wrapper JAR should still be restored with a normal Git client for standard local reproducibility.
-- The `functions` package does not yet include a committed `package-lock.json`; Functions CI is blocking and runs syntax checks, but dependency resolution still uses `npm install` rather than deterministic `npm ci`.
-- Firestore authorization tests are still documented/manual rather than executable emulator-backed tests. The updated plan covers both client rules and the callable control plane, but automated rules/function integration tests remain required before production release.
-- The Phase 2 callable control plane must be deployed together with its stricter Firestore rules. Deploying the rules before the new Functions/clients would intentionally disable legacy direct pairing, command creation, parent request resolution, and notification creation.
-- `MonitoringService.kt` remains oversized and should still be decomposed into identity/status, command, usage-sync, enforcement, time-request, and protection-alert components. Phase 2 removes the obsolete top-level `children/{childUid}.blockApp` listener, replaces the whole-document child-status `.set()` with update-only status publishing, and routes permission/security alerts through `reportChildSecurityAlert`.
-- The temporary `MonitoringServiceInterop.kt` bridge still supplies child identity for usage sync and a local app-version constant. It should disappear as identity/status and sync responsibilities are extracted from the service.
-- FCM token registration on the Android child remains incomplete, so push-assisted command/request delivery is not yet production-ready.
-- The Android app still targets API 34. A dedicated API 36 migration and long-running foreground-service lifecycle redesign are required before Play release.
-- The Android repository still builds a single Child-oriented APK; a separate Parent Android application has not yet been created. The Parent Web portal remains the existing parent control surface until the mobile split phase.
-- In restricted development environments, npm/Firebase CLI registry or tool access may still block local emulator/deploy commands even though GitHub CI can install and build the current packages.
+This file lists unresolved current constraints. Completed Phase 2-5 migrations are intentionally not repeated as TODOs.
+
+## Build and dependency reproducibility
+
+- `gradle-wrapper.jar` is not committed. Blocking Android CI provisions Gradle 8.5 explicitly. Local developers need a compatible Gradle installation until the wrapper is restored.
+- `functions/` does not currently commit a `package-lock.json`, so Functions and callable CI install dependencies with `npm install` rather than deterministic `npm ci`.
+
+## Android automated testing
+
+- Blocking CI compiles both `assembleDebug` and `assembleDebugAndroidTest`.
+- CI does **not** currently execute `connectedAndroidTest` on an emulator/device.
+- The retained 13 Android instrumented methods cover Room protection-incident persistence, not full foreground-service, enforcement, cloud, or Parent UI behavior.
+
+## Android platform/runtime
+
+- The Child Android app still targets API 34. API-level/lifecycle modernization is required before treating the app as Play-release ready for newer Android requirements.
+- Long-running foreground monitoring, accessibility enforcement, OEM background restrictions, permission recovery, and process-death behavior still need broader real-device validation.
+- Android Child FCM token registration/messaging support is incomplete. Backend FCM attempts exist for time-request events, but push delivery is not yet a fully verified Child delivery channel.
+
+## Child UI/product correctness
+
+- `ActivityAlertsActivity` currently renders hard-coded sample alert strings rather than live local/cloud incident data.
+- Some Child diagnostic/sync controls remain simple prototype behavior rather than production-grade observability/recovery tooling.
+- Local Room behavior/profile/prediction tables are retained for current persistence compatibility even where active runtime reads are limited. Removing tables would require an explicit Room schema/migration decision.
+
+## Parent surface
+
+- The repository builds a single Child Android APK. A separate Parent Android application has not been created.
+- `parent-dashboard-web` remains the current Parent control surface.
+
+## FCM and realtime delivery
+
+- Persisted Firestore state/listeners remain the authoritative delivery/state mechanism for commands and requests.
+- FCM should be treated as supplemental until registration, token lifecycle, duplicate handling, and device delivery are fully implemented and tested.
+
+## Production readiness
+
+- Passing CI is necessary but not sufficient for a production release. The current five jobs prove web/functions builds, emulator-backed authorization/callable behavior, and Android app/test-APK compilation.
+- Production release still requires manual/live validation of pairing, command enforcement, time requests, usage sync, permission recovery, device restart/process-death behavior, and supported Android versions.
+- Firebase deployment is manual. Rules and callable Functions that form the server-authoritative control plane should be deployed as a coordinated release rather than independently introducing an incompatible client/server boundary.
+
+## Development-environment constraints
+
+- Restricted development environments can still lack Android emulators/devices or Firebase deployment credentials even when GitHub CI can build/test the repository.
