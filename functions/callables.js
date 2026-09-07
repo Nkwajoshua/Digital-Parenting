@@ -1,12 +1,12 @@
 const crypto = require('node:crypto')
 const admin = require('firebase-admin')
+const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions')
 
 if (admin.apps.length === 0) admin.initializeApp()
 
 const db = admin.firestore()
-const { FieldValue, Timestamp } = admin.firestore
 
 const PAIRING_TTL_MS = 15 * 60 * 1000
 const PAIRING_ATTEMPTS = 8
@@ -124,7 +124,7 @@ exports.createPairingCode = onCall(async (request) => {
         }, { merge: true })
       })
 
-      logger.info('[PAIRING] Server pairing code created.', { parentUid, code, attempt })
+      logger.info('[PAIRING] Server pairing code created.', { parentUid, attempt })
       return { code, expiresAtMillis: expiresAt.toMillis() }
     } catch (error) {
       if (error?.message === 'PAIRING_CODE_COLLISION') continue
