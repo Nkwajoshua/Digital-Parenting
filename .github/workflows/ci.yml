@@ -134,15 +134,15 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Gradle 8.5
+      - name: Setup Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '8.5'
+          gradle-version: '8.11.1'
 
       - name: Note wrapper limitation
         run: |
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "::warning::gradle-wrapper.jar is not committed. CI will compile with provisioned Gradle 8.5 instead of ./gradlew."
+            echo "::warning::gradle-wrapper.jar is not committed. CI will compile with provisioned Gradle 8.11.1 instead of ./gradlew."
           fi
 
       - name: Assemble debug APK
