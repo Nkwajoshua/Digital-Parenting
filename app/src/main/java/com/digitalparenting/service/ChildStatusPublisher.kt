@@ -104,7 +104,7 @@ internal class ChildStatusPublisher(
             .document(user.uid)
             .update(payload)
             .addOnSuccessListener {
-                ChildStatusSyncState.recordSuccessfulSync(appContext)
+                ChildStatusSyncState.recordSuccessfulSync(appContext, user.uid)
                 Log.d("CHILD_STATUS", "Child heartbeat published successfully")
             }
             .addOnFailureListener { error ->
