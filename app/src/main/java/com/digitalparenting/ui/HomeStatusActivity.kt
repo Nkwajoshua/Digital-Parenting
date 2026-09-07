@@ -5,11 +5,10 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import com.digitalparenting.R
 import com.google.firebase.auth.FirebaseAuth
 
-class HomeStatusActivity : AppCompatActivity() {
+class HomeStatusActivity : EdgeToEdgeActivity() {
 
     private lateinit var tvAccessibilityStatus: TextView
     private lateinit var tvOverlayStatus: TextView
