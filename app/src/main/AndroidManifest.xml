@@ -60,6 +60,15 @@
                 android:value="continuous_child_device_parental_control_monitoring_and_app_limit_enforcement" />
         </service>
 
+        <!-- Firebase Cloud Messaging receiver for Child-directed updates and token rotation. -->
+        <service
+            android:name=".service.ChildFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- Boot Receiver -->
         <receiver android:name=".service.BootReceiver"
             android:enabled="true"
