@@ -9,7 +9,6 @@ import android.app.usage.UsageStatsManager
 import com.digitalparenting.util.NotificationHelper
 import com.digitalparenting.util.ProtectionStateManager
 import android.app.usage.UsageEvents
-import android.util.Log
 import com.digitalparenting.data.AppSession
 import com.digitalparenting.data.BehaviorAnalyzer
 import com.digitalparenting.data.BehaviorRecord
@@ -28,7 +27,6 @@ import com.digitalparenting.data.local.AppSessionDao
 import com.digitalparenting.data.local.AppSessionEntity
 import com.digitalparenting.data.local.AppUsageStats
 import com.digitalparenting.data.local.BehaviorRecordDao
-import com.google.firebase.auth.FirebaseAuth
 import com.digitalparenting.data.local.UserProfileDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +72,15 @@ class MonitoringService : Service() {
             }
         )
     }
-    private var authStateListener: FirebaseAuth.AuthStateListener? = null
+    private val authCoordinator by lazy {
+        ChildAuthCoordinator(
+            onAuthenticated = {
+                childStatusPublisher.publishInitialStatus()
+                timeRequestController.start()
+                commandController.start()
+            }
+        )
+    }
 
     private lateinit var database: AppDatabase
     private lateinit var dao: AppSessionDao
@@ -89,14 +95,6 @@ class MonitoringService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        
-        val auth = FirebaseAuth.getInstance()
-        val uid = auth.currentUser?.uid
-        if (uid != null) {
-            Log.d("CHILD_AUTH", "MonitoringService boot with UID=$uid")
-        } else {
-            Log.w("CHILD_AUTH", "MonitoringService boot without user; waiting for auth")
-        }
         
         notificationHelper = NotificationHelper(this)
         notificationHelper.createChannels()
@@ -115,7 +113,7 @@ class MonitoringService : Service() {
 
         behaviorPredictor.loadState(this)
         println("Loaded BehaviorPredictor state: ${behaviorPredictor.getMetrics()}")
-        initializeFirebaseFeaturesWhenAuthenticated()
+        authCoordinator.start()
 
         restoreProtectionState()
         updateForegroundNotification()
@@ -124,40 +122,12 @@ class MonitoringService : Service() {
 
     }
 
-
-    private fun initializeFirebaseFeaturesWhenAuthenticated() {
-        authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
-
-        val listener = FirebaseAuth.AuthStateListener { auth ->
-            val user = auth.currentUser
-            if (user != null) {
-                Log.d("CHILD_AUTH", "MonitoringService auth ready UID=${user.uid}")
-                childStatusPublisher.publishInitialStatus()
-                timeRequestController.start()
-                commandController.start()
-            } else {
-                Log.w("CHILD_AUTH", "MonitoringService auth unavailable; retrying anonymous sign-in")
-                FirebaseAuth.getInstance().signInAnonymously()
-                    .addOnSuccessListener { result ->
-                        Log.d("CHILD_AUTH", "MonitoringService anonymous sign-in success UID=${result.user?.uid}")
-                    }
-                    .addOnFailureListener { error ->
-                        Log.e("CHILD_AUTH", "MonitoringService anonymous sign-in failed", error)
-                    }
-            }
-        }
-
-        authStateListener = listener
-        FirebaseAuth.getInstance().addAuthStateListener(listener)
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         timeRequestController.stop()
         commandController.stop()
         childStatusPublisher.stop()
-        authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
-        authStateListener = null
+        authCoordinator.stop()
         blockingUiController.hideOverlay()
         currentSession?.let {
             it.endTime = System.currentTimeMillis()
