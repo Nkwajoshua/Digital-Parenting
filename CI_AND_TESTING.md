@@ -2,7 +2,7 @@
 
 Workflow: `.github/workflows/ci.yml`
 
-All five CI jobs are blocking on pull requests and pushes to `main`.
+All six CI jobs are blocking on pull requests and pushes to `main`.
 
 ## 1. Parent Dashboard Web
 
@@ -60,13 +60,15 @@ The project commits a complete Gradle 8.11.1 wrapper and CI uses it directly wit
 
 Android uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 36`.
 
-### Android test boundary
+## 6. Android Instrumented Tests
 
-`assembleDebugAndroidTest` compiles the instrumented-test APK. It does not execute the test methods. Until the dedicated emulator execution gate is enabled, run locally with:
+CI boots a hardware-accelerated API 35 Google APIs x86_64 emulator and executes the complete instrumented suite:
 
 ```bash
-./gradlew --no-daemon connectedAndroidTest
+./gradlew --no-daemon connectedDebugAndroidTest
 ```
+
+The emulator gate executes all 23 methods across the five retained `androidTest` classes. It covers their local Room and SharedPreferences assertions; it is not a substitute for physical Android 15/16 or live Firebase/FCM validation.
 
 ## Reproducibility contract
 

@@ -93,12 +93,15 @@ The blocking workflow contains:
 3. Firestore Authorization Tests
 4. Callable Control Plane Tests
 5. Android Build
+6. Android Instrumented Tests
 
 Android Build uses the committed wrapper to compile both `assembleDebug` and `assembleDebugAndroidTest`.
 
+Android Instrumented Tests boots a hardware-accelerated API 35 emulator and executes `connectedDebugAndroidTest` as a separate blocking gate.
+
 The Android instrumented inventory is **23 methods across five classes**, covering protection-incident persistence, block-state recovery, Accessibility consent state, and UID-scoped Child status-sync evidence. See `TESTING.md`.
 
-The current Android job compiles the instrumented-test APK but does not yet execute `connectedAndroidTest`; live Android 15/16 behavior remains a release validation requirement until the emulator execution gate is added.
+The emulator gate executes the full inventory, but live Android 15/16 behavior remains a separate physical-device release validation requirement.
 
 ## Current architecture status
 
