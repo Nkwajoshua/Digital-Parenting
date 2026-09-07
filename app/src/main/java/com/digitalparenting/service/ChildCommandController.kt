@@ -1,9 +1,11 @@
 package com.digitalparenting.service
 
+import android.content.Context
 import android.util.Log
 import com.digitalparenting.data.BlockStateManager
 import com.digitalparenting.data.local.AppLimit
 import com.digitalparenting.data.local.AppLimitDao
+import com.digitalparenting.util.ProtectionStateManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -20,11 +22,13 @@ import kotlinx.coroutines.launch
  * Child identity and applies the corresponding local effect.
  */
 internal class ChildCommandController(
+    context: Context,
     private val limitDao: AppLimitDao,
     private val onBlockRequested: (appName: String, appPackage: String, reason: String) -> Unit,
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
+    private val appContext = context.applicationContext
     private var listener: ListenerRegistration? = null
 
     fun start() {
@@ -96,11 +100,13 @@ internal class ChildCommandController(
                 when (type) {
                     "block_app" -> {
                         BlockStateManager.setBlocked(setOf(appPackage))
+                        ProtectionStateManager.persistCurrentBlockState(appContext)
                         onBlockRequested(appName, appPackage, reason)
                     }
 
                     "unblock_app" -> {
                         BlockStateManager.removeBlocked(appPackage)
+                        ProtectionStateManager.persistCurrentBlockState(appContext)
                     }
 
                     "set_limit" -> {
