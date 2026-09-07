@@ -13,16 +13,20 @@ See the source under `app/src/androidTest/java/` for the exact classes and asser
 
 ## CI behavior
 
-The blocking Android build uses the committed Gradle wrapper:
+The blocking Android jobs use the committed Gradle wrapper. The build job compiles both APKs:
 
 ```bash
 ./gradlew --no-daemon assembleDebug
 ./gradlew --no-daemon assembleDebugAndroidTest
 ```
 
-The second command compiles the instrumented-test APK and protects `androidTest` from compile/dependency drift.
+The emulator job then boots a hardware-accelerated API 35 Google APIs x86_64 emulator and runs:
 
-**The current Android build job does not yet execute the 23 methods on an emulator/device.** That becomes a separate CI gate in the next automation slice.
+```bash
+./gradlew --no-daemon connectedDebugAndroidTest
+```
+
+This executes all 23 methods as a blocking CI gate. It is stable local persistence/state coverage rather than Android-16-specific end-to-end coverage.
 
 ## Execute instrumented tests locally
 
