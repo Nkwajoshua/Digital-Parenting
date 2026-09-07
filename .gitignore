@@ -39,6 +39,8 @@ Thumbs.db
 # Caches
 */.cxx/
 */.externalNativeBuild/
+**/node_modules/
+**/dist/
 
 # Ignore generated test results
 **/androidTest/outputs/

@@ -12,7 +12,7 @@ export default function DebugPanelPage() {
   const [commandListenerStatus, setCommandListenerStatus] = useState('idle')
 
   const selectedChildUid = children[0]?.id || ''
-  const childUids = children.map((c) => c.id)
+  const childUids = useMemo(() => children.map((c) => c.id), [children])
 
   useEffect(() => {
     const unsubChildren = listenChildren(devBypass ? null : user?.uid, (rows) => {
@@ -26,7 +26,7 @@ export default function DebugPanelPage() {
     }, () => setRequestListenerStatus('error'))
 
     return () => { unsubChildren(); unsubRequests() }
-  }, [user?.uid, devBypass, childUids.join(',')])
+  }, [user?.uid, devBypass, childUids])
 
   useEffect(() => {
     if (!selectedChildUid) return () => {}
