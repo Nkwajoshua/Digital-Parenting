@@ -793,7 +793,7 @@ class MonitoringService : Service() {
 
             checkAndEnforceLimit(entity.packageName, entity.appName ?: "Unknown App")
 
-            usageSyncRepository.syncSession(childUid, entity)
+            usageSyncRepository.syncSession(entity)
 
             val durationSeconds = duration / 1000
             println("DB: App: ${session.packageName} Start: ${formatTime(session.startTime)} End: ${formatTime(session.endTime)} Duration: ${durationSeconds}s")

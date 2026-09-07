@@ -2,12 +2,24 @@ package com.digitalparenting.data.repository
 
 import android.util.Log
 import com.digitalparenting.data.local.AppSessionEntity
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
-class UsageSyncRepository {
-    private val firestore = FirebaseFirestore.getInstance()
+class UsageSyncRepository(
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+) {
+    fun syncSession(session: AppSessionEntity) {
+        val user = auth.currentUser
+        if (user == null) {
+            Log.e("FirebaseSync", "Skipping usage sync because Child authentication is unavailable")
+            return
+        }
+        if (!user.isAnonymous) {
+            Log.e("FirebaseSync", "Skipping usage sync because the active identity is not a Child identity")
+            return
+        }
 
-    fun syncSession(childUid: String, session: AppSessionEntity) {
         val sessionData = hashMapOf(
             "packageName" to session.packageName,
             "appName" to session.appName,
@@ -21,14 +33,14 @@ class UsageSyncRepository {
         )
 
         firestore.collection("usage_sessions")
-            .document(childUid)
+            .document(user.uid)
             .collection("sessions")
             .add(sessionData)
             .addOnSuccessListener {
                 Log.d("FirebaseSync", "Session synced successfully")
             }
-            .addOnFailureListener { e ->
-                Log.e("FirebaseSync", "Sync failed", e)
+            .addOnFailureListener { error ->
+                Log.e("FirebaseSync", "Sync failed", error)
             }
     }
 }
