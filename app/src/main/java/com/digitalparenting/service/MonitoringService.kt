@@ -33,7 +33,7 @@ class MonitoringService : Service() {
             onLimitExceeded = blockingUiController::launchBlockedScreen
         )
     }
-    private val behaviorController by lazy {
+    private val behaviorController: ChildBehaviorController by lazy {
         ChildBehaviorController(
             context = this,
             sessionDao = dao,
@@ -51,7 +51,7 @@ class MonitoringService : Service() {
             currentAppProvider = { foregroundSessionTracker.currentApp() }
         )
     }
-    private val foregroundSessionTracker by lazy {
+    private val foregroundSessionTracker: ChildForegroundSessionTracker by lazy {
         ChildForegroundSessionTracker(
             context = this,
             onSessionCompleted = { session, appName ->
