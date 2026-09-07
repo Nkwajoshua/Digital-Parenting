@@ -13,6 +13,7 @@ The Child runtime publishes permitted operational fields on its own `children/{c
 - `appVersion`
 - `deviceTime`
 - accessibility/overlay protection-health fields
+- `fcmToken` and `fcmTokenUpdatedAt` for Child push delivery
 
 The Child cannot rewrite Parent ownership fields.
 
@@ -47,6 +48,7 @@ Direct client pairing writes are denied.
 3. Parent resolves a request through `resolveTimeRequest`.
 4. Server writes `approved` or `denied` state.
 5. Child listener receives the change; approved requests may be applied and transitioned to `applied` by that Child.
+6. When a Child FCM token is available, the backend also sends a supplemental push update for the resolved request.
 
 Parent clients must not directly update request resolution fields.
 
@@ -70,9 +72,11 @@ The owning Parent may read notifications and update permitted read-state metadat
 
 ## FCM
 
-Backend triggers can attempt FCM delivery for time-request events when tokens exist. FCM is supplemental to persisted Firestore state and is not the authority for command/request status.
+Child Android registers the current Firebase Messaging token after authenticated monitoring startup and stores it as `children/{childUid}.fcmToken` with `fcmTokenUpdatedAt`. `ChildFirebaseMessagingService.onNewToken()` handles token rotation; if a refresh arrives before Child authentication/pairing is ready, the normal monitoring startup registration retries the current token later.
 
-Android Child token registration/messaging support remains incomplete.
+The current Child-directed push use case is time-request resolution. The backend sends a notification+data FCM message after a request moves from `pending` to `approved` or `denied` when a Child token exists. When the app is foregrounded, `ChildFirebaseMessagingService` displays the update through the existing Child Alerts notification channel. Android/Firebase may display the notification payload directly when the app is backgrounded.
+
+FCM is deliberately supplemental. `ChildFirebaseMessagingService` does not apply approved minutes, execute Parent commands, or mutate block state from a push payload. Persisted Firestore state and the existing authenticated listeners remain authoritative, so delayed, duplicated, or absent push delivery cannot create a conflicting control state.
 
 ## Listener cleanup
 
