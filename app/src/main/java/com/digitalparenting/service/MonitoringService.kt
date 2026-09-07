@@ -8,12 +8,8 @@ import com.digitalparenting.util.NotificationHelper
 import com.digitalparenting.util.ProtectionStateManager
 import com.digitalparenting.data.BlockStateManager
 import com.digitalparenting.data.local.AppDatabase
-import com.digitalparenting.data.local.ProtectionIncidentEntity
 import com.digitalparenting.data.local.AppLimitDao
 import com.digitalparenting.data.local.AppSessionDao
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class MonitoringService : Service() {
     // TODO(FCM): Register child device FCM token and store at children/{childUid}.fcmToken.
@@ -25,6 +21,9 @@ class MonitoringService : Service() {
 
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
     private val blockingUiController by lazy { ChildBlockingUiController(this) }
+    private val incidentRecorder by lazy {
+        ChildIncidentRecorder(database.protectionIncidentDao())
+    }
     private val sessionRecorder by lazy {
         ChildSessionRecorder(
             context = this,
@@ -44,7 +43,7 @@ class MonitoringService : Service() {
             onChildAlert = { title, message ->
                 notificationHelper.showChildAlert(title, message)
             },
-            onIncident = ::logIncident,
+            onIncident = incidentRecorder::record,
             onHideOverlay = blockingUiController::hideOverlay,
             onShowWarningOverlay = blockingUiController::showWarningOverlay,
             onShowBlockOverlay = blockingUiController::showBlockOverlay,
@@ -66,7 +65,7 @@ class MonitoringService : Service() {
         ChildProtectionHealthController(
             context = this,
             notificationHelper = notificationHelper,
-            onIncident = ::logIncident
+            onIncident = incidentRecorder::record
         )
     }
     private val commandController by lazy {
@@ -99,7 +98,6 @@ class MonitoringService : Service() {
     private lateinit var database: AppDatabase
     private lateinit var dao: AppSessionDao
     private lateinit var limitDao: AppLimitDao
-    private lateinit var incidentDao: com.digitalparenting.data.local.ProtectionIncidentDao
 
     override fun onCreate() {
         super.onCreate()
@@ -116,7 +114,6 @@ class MonitoringService : Service() {
         database = AppDatabase.getDatabase(this)
         dao = database.appSessionDao()
         limitDao = database.appLimitDao()
-        incidentDao = database.protectionIncidentDao()
 
         behaviorController.loadState()
         authCoordinator.start()
@@ -212,25 +209,6 @@ class MonitoringService : Service() {
             NotificationHelper.FOREGROUND_NOTIFICATION_ID,
             notificationHelper.buildForegroundNotification(contentText)
         )
-    }
-
-    private fun logIncident(
-        type: String,
-        title: String,
-        message: String,
-        appPackage: String?
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            incidentDao.insert(
-                ProtectionIncidentEntity(
-                    type = type,
-                    title = title,
-                    message = message,
-                    appPackage = appPackage,
-                    timestamp = System.currentTimeMillis()
-                )
-            )
-        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
