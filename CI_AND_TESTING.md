@@ -6,92 +6,85 @@ All five CI jobs are blocking on pull requests and pushes to `main`.
 
 ## 1. Parent Dashboard Web
 
-Working directory: `parent-dashboard-web`
-
 ```bash
+cd parent-dashboard-web
 npm ci
 npm run check:env
 npm run build
 ```
 
-This validates deterministic web dependencies, Firebase environment shape, and the production Vite build.
-
 ## 2. Firebase Functions
 
-Working directory: `functions`
-
 ```bash
-npm install --no-audit --no-fund
+cd functions
+npm ci --no-audit --no-fund
 npm run check
 ```
 
-`functions` does not currently commit a `package-lock.json`, so CI uses `npm install` rather than `npm ci`.
+`functions/package-lock.json` is committed, so CI/deploy preparation uses the same dependency graph.
 
 ## 3. Firestore Authorization Tests
 
-CI installs the rules-test package and runs the Firestore emulator suite:
-
 ```bash
-npm --prefix tests/firestore-rules install --no-audit --no-fund
+npm --prefix tests/firestore-rules ci --no-audit --no-fund
 npx --yes firebase-tools@15.29.0 emulators:exec \
   --project demo-digital-parenting-rules \
   --only firestore \
   "npm --prefix tests/firestore-rules test"
 ```
 
-This suite verifies Parent/Child client authorization boundaries and direct-write denials for server-authoritative operations.
+`tests/firestore-rules/package-lock.json` is committed.
 
 ## 4. Callable Control Plane Tests
 
-CI runs Auth, Firestore, and Functions emulators together:
-
 ```bash
-npm --prefix functions install --no-audit --no-fund
-npm --prefix tests/functions-integration install --no-audit --no-fund
+npm --prefix functions ci --no-audit --no-fund
+npm --prefix tests/functions-integration ci --no-audit --no-fund
 npx --yes firebase-tools@15.29.0 emulators:exec \
   --project demo-digital-parenting-callables \
   --only auth,firestore,functions \
   "npm --prefix tests/functions-integration test"
 ```
 
-This exercises callable role enforcement, ownership checks, pairing, commands, time-request resolution, and Child security-alert reporting.
+`tests/functions-integration/package-lock.json` is committed.
 
 ## 5. Android Build
 
-CI provisions JDK 17 and Gradle 8.11.1, then compiles both the Child app and instrumented-test APK. The project uses AGP 8.10.1 with both `compileSdk 36` and `targetSdk 36`.
+The project commits a complete Gradle 8.11.1 wrapper and CI uses it directly with JDK 17:
 
 ```bash
-gradle --no-daemon assembleDebug
-gradle --no-daemon assembleDebugAndroidTest
+./gradlew --version
+./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon assembleDebugAndroidTest
 ```
 
-`gradle-wrapper.jar` is not committed, so CI intentionally uses the provisioned Gradle installation. `gradle/wrapper/gradle-wrapper.properties` is aligned to Gradle 8.11.1 for the eventual wrapper restoration.
+Android uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 36`.
 
-### Important Android test boundary
+### Android test boundary
 
-`assembleDebug` verifies the target-36 app compiles against the prepared Android 15/16 compatibility surface. `assembleDebugAndroidTest` proves that `androidTest` sources and dependencies compile.
-
-CI does **not** currently launch an emulator or execute the instrumented test methods. A green Android job therefore does not prove target-36 runtime behavior, Accessibility/notification dialogs, foreground-service recovery, edge-to-edge rendering, back gestures, or OEM behavior.
-
-To execute instrumented tests locally on a connected Android device/emulator:
+`assembleDebugAndroidTest` compiles the instrumented-test APK. It does not execute the test methods. Until the dedicated emulator execution gate is enabled, run locally with:
 
 ```bash
-gradle --no-daemon connectedAndroidTest
+./gradlew --no-daemon connectedAndroidTest
 ```
 
-## Parent Web environment variables
+## Reproducibility contract
 
-The dashboard expects:
+A fresh checkout should not require a separately installed Gradle distribution or dependency resolution through `npm install` for blocking CI packages.
 
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
+Committed reproducibility artifacts are:
+
+- `gradlew`
+- `gradlew.bat`
+- `gradle/wrapper/gradle-wrapper.jar`
+- `gradle/wrapper/gradle-wrapper.properties`
+- `parent-dashboard-web/package-lock.json`
+- `functions/package-lock.json`
+- `tests/firestore-rules/package-lock.json`
+- `tests/functions-integration/package-lock.json`
+
+If a `package.json` dependency changes, update and commit its matching lockfile in the same PR.
 
 ## Merge standard
 
-Do not describe a branch as verified until all five CI jobs are green on the exact pull-request head intended for merge. For Android changes, confirm that the Android job completed both APK compilation steps.
-
-A green target-36 build is compile proof, not live-device release proof. Use `E2E_TEST_PLAN.md` for Android 15/16 runtime validation before production distribution.
+Do not describe a branch as verified until all blocking CI jobs are green on the exact pull-request head intended for merge. A green target-36 build is compile proof, not live-device release proof. Use `E2E_TEST_PLAN.md` for runtime validation.
