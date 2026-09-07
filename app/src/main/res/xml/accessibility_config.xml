@@ -4,4 +4,5 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="100"
     android:canRetrieveWindowContent="false"
+    android:isAccessibilityTool="false"
     android:settingsActivity="com.digitalparenting.ui.MainActivity" />
