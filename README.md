@@ -1,122 +1,91 @@
 # Digital Parenting
 
-Digital Parenting is a parental-control platform with a **Child Android app**, a **Parent Web dashboard**, and a Firebase-backed control plane. The Child app monitors foreground usage, records sessions, evaluates behavioral risk, enforces limits and block state, reports protection health, and applies parent commands. The Parent Web dashboard provides the parent-facing control and visibility surface.
+Digital Parenting is a parental-control platform with a **Child Android app**, a **Parent Web dashboard**, and a Firebase-backed control plane.
 
-## Product Surfaces
+The current repository intentionally has one Android application module: the protected Child device. Parent-facing control is provided by `parent-dashboard-web`.
 
-### Child Android App
+## Product surfaces
 
-The Android application is the protected-device runtime. It is responsible for:
+### Child Android app
 
-- foreground app and session tracking;
+The Android app is responsible for:
+
+- anonymous Child authentication and server-authorized pairing;
+- foreground app/session tracking;
 - local Room persistence;
-- configured daily-limit enforcement;
-- behavioral analysis, prediction, and intervention selection;
-- accessibility and overlay-based blocking support;
-- protection-health checks and local incident recording;
-- authenticated Child status/usage synchronization;
-- receiving parent commands and approved extra-time updates;
-- persistent foreground monitoring and restart resilience.
+- daily-limit and block-state enforcement;
+- behavioral risk analysis and intervention selection;
+- accessibility/overlay protection support;
+- protection-health checks and local incident persistence;
+- heartbeat/status and usage synchronization;
+- consuming server-authorized Parent commands;
+- creating and applying screen-time requests.
 
-### Parent Web Dashboard
+### Parent Web dashboard
 
-`parent-dashboard-web` is the current Parent control surface. It is responsible for parent-facing monitoring and control workflows backed by Firebase.
+`parent-dashboard-web` is the current Parent product surface. It provides authentication, pairing-code creation, Child visibility, commands, time-request decisions, usage views, notifications, and settings workflows.
 
-The repository still contains some older Android dashboard classes from an earlier architecture. They are **not the current Parent product surface** and are being retained temporarily while Phase 5A audits references, tests, resources, and dependencies before any deletion.
+There is currently **no separate Parent Android application** in this repository.
 
-### Firebase Control Plane
+### Firebase control plane
 
-Firebase provides the shared cloud boundary between the Child Android runtime and Parent Web dashboard. The repository includes Firebase Functions, Firestore security rules, callable integration tests, and authorization tests.
+Sensitive ownership and Parent-control transitions are server-authoritative. Parent and Child clients use callable Cloud Functions for operations such as:
 
-## Child Runtime Architecture
+- `createPairingCode`
+- `redeemPairingCode`
+- `sendCommand`
+- `resolveTimeRequest`
+- `reportChildSecurityAlert`
 
-`MonitoringService` is intentionally a thin Android foreground-service orchestration shell. It owns service lifecycle, the periodic monitoring loop, foreground-notification state, persisted block-state restoration, and wiring between focused components.
+Firestore rules deny the corresponding direct client writes. See `FIRESTORE_CONTRACT.md` for the canonical data and authorization contract.
 
-Key Child runtime components include:
+## Child runtime architecture
 
-- `ChildAuthCoordinator` — Child authentication coordination;
-- `ChildStatusPublisher` — Child status publication;
-- `ChildCommandController` — parent command handling;
-- `ChildTimeRequestController` — approved extra-time handling;
-- `ChildForegroundSessionTracker` — foreground transition detection and active-session boundaries;
-- `ChildSessionRecorder` — completed-session persistence, usage sync, and hard daily-limit enforcement;
-- `ChildBehaviorController` — behavioral analysis, prediction, intervention selection, persistence, and prediction learning;
-- `ChildBlockingUiController` — warning/block UI orchestration;
-- `ChildProtectionHealthController` — critical permission/protection checks;
-- `ChildIncidentRecorder` — local protection-incident persistence;
-- `ChildAccessibilityService` — accessibility-backed blocked-app enforcement.
+`MonitoringService` is a foreground-service orchestration shell rather than the old monolith. Focused runtime components include:
 
-This split keeps Android lifecycle orchestration separate from persistence, Firebase coordination, session tracking, enforcement UI, and behavioral policy.
+- `ChildAuthCoordinator`
+- `ChildStatusPublisher`
+- `ChildCommandController`
+- `ChildTimeRequestController`
+- `ChildForegroundSessionTracker`
+- `ChildSessionRecorder`
+- `ChildBehaviorController`
+- `ChildBlockingUiController`
+- `ChildProtectionHealthController`
+- `ChildIncidentRecorder`
+- `ChildAccessibilityService`
 
-## Key Features
+The split keeps Android lifecycle orchestration separate from identity, Firebase coordination, persistence, enforcement, behavior policy, and protection-health concerns.
 
-### Usage Monitoring
+## Repository structure
 
-- Tracks foreground app transitions and active sessions.
-- Records completed sessions locally.
-- Maintains a continuously running foreground monitoring service.
+- `app/` - Child Android application
+- `parent-dashboard-web/` - Parent Web dashboard
+- `functions/` - Firebase triggers, scheduled work, and callable control plane
+- `firestore.rules` - Firestore client authorization rules
+- `firestore.indexes.json` - Firestore indexes
+- `tests/firestore-rules/` - executable Firestore authorization tests
+- `tests/functions-integration/` - executable Auth + Functions + Firestore callable tests
 
-### Limits and Blocking
-
-- Enforces configured app limits.
-- Supports warning, delay, and blocked intervention modes.
-- Persists block state across service restarts.
-- Uses accessibility and overlay support for Child-side enforcement.
-
-### Behavioral Risk Analysis
-
-- Derives a recent usage profile from session history.
-- Generates behavioral predictions and risk scores.
-- Escalates intervention based on existing binge/risk policy.
-- Evaluates prediction outcomes and updates predictor weights.
-
-### Protection Health
-
-- Detects loss of accessibility and overlay permissions.
-- Raises Child alerts and records local protection incidents.
-- Exposes health/status information to the cloud control plane.
-
-### Parent Control
-
-- Parent-facing control is provided through `parent-dashboard-web`.
-- Firebase-backed commands and time approvals are applied by the Child runtime.
-- Firestore authorization and callable control-plane behavior are covered by CI suites.
-
-## Repository Structure
-
-- `app/` — Child Android application.
-- `app/src/main/java/com/digitalparenting/service/MonitoringService.kt` — foreground-service orchestration shell.
-- `app/src/main/java/com/digitalparenting/service/ChildBehaviorController.kt` — behavior/prediction policy.
-- `app/src/main/java/com/digitalparenting/service/ChildForegroundSessionTracker.kt` — foreground/session tracking.
-- `app/src/main/java/com/digitalparenting/service/ChildSessionRecorder.kt` — session persistence and daily-limit enforcement.
-- `app/src/main/java/com/digitalparenting/service/ChildIncidentRecorder.kt` — local incident persistence.
-- `app/src/main/java/com/digitalparenting/service/ChildAccessibilityService.kt` — accessibility enforcement.
-- `app/src/main/java/com/digitalparenting/data/local/AppDatabase.kt` — Room database.
-- `parent-dashboard-web/` — Parent Web dashboard.
-- `functions/` — Firebase Functions/control-plane logic.
-- `firestore.rules` — Firestore authorization rules.
-
-## Build Topology
-
-The Android project currently contains a single application module:
+## Build topology
 
 ```text
-:app
+:app   -> Child Android APK
+parent-dashboard-web -> Parent Web application
+functions -> Firebase backend
 ```
 
-That module is the **Child Android app**. The Parent product surface is the separate web application rather than a second Android application module.
-
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Android SDK
-- JDK 17
-- Gradle
-- Node.js/npm for Firebase and Parent Web work
+- JDK 17 for Android builds
+- Node.js 20/npm for web and Firebase work
 - Firebase project configuration
+- Gradle 8.5
 
-### Child Android Build
+`gradle-wrapper.jar` is not currently committed, so CI provisions Gradle 8.5 directly. Until the wrapper is restored, use a local Gradle 8.5 installation rather than relying on `./gradlew`.
+
+## Child Android build
 
 Place the Android Firebase configuration at:
 
@@ -124,36 +93,36 @@ Place the Android Firebase configuration at:
 app/google-services.json
 ```
 
-Build the debug APK:
+Build the app and instrumented-test APKs:
 
 ```bash
-./gradlew assembleDebug --no-daemon
+gradle --no-daemon assembleDebug
+gradle --no-daemon assembleDebugAndroidTest
 ```
 
-Install to a connected device or emulator:
+Install the Child app on a connected device:
 
 ```bash
-./gradlew installDebug --no-daemon
+gradle --no-daemon installDebug
 ```
 
-Recommended Logcat filters during live Child tests:
+Useful Logcat tags during live Child testing include:
 
 - `CHILD_AUTH`
 - `CHILD_UID_FIRESTORE`
 - `RemoteCommand`
 - `TimeRequest`
 
-## Parent Web Dashboard
+## Parent Web dashboard
 
-### Firebase Web Environment
-
-In `parent-dashboard-web`, copy the environment template:
+Create the local environment file:
 
 ```bash
+cd parent-dashboard-web
 cp .env.example .env
 ```
 
-Populate the required values:
+Provide the required Firebase web values:
 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
@@ -162,53 +131,64 @@ Populate the required values:
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
-Restart the Vite process after changing `.env` values.
-
-### Build
+Build with:
 
 ```bash
-cd parent-dashboard-web
-npm install
+npm ci
+npm run check:env
 npm run build
 ```
 
-Available scripts include:
-
-- `npm run dev`
-- `npm run build`
-- `npm run preview`
-
 ## Testing and CI
 
-The repository CI currently verifies five primary gates:
+The blocking GitHub Actions workflow contains five jobs:
 
-1. Android `assembleDebug`
-2. Callable Control Plane Tests
-3. Firestore Authorization Tests
-4. Firebase Functions
-5. Parent Dashboard Web
+1. **Parent Dashboard Web** - environment validation and production build
+2. **Firebase Functions** - dependency install and syntax check
+3. **Firestore Authorization Tests** - Firestore emulator authorization suite
+4. **Callable Control Plane Tests** - Auth + Functions + Firestore emulator integration suite
+5. **Android Build** - `assembleDebug` plus `assembleDebugAndroidTest`
 
-Additional Android instrumented tests and project-specific test documentation are retained in the repository.
+The Android CI job **compiles** the instrumented-test APK. It does not currently boot an emulator or execute `connectedAndroidTest`.
 
-## Architecture Status
+See `CI_AND_TESTING.md` and `TESTING.md` for exact commands and scope.
 
-Phase 4 decomposed the former `MonitoringService` monolith into focused Child runtime components without intentionally changing the established enforcement, prediction, session, or cloud-control semantics.
+## Current architecture status
 
-The next architecture cleanup is **Phase 5A: dependency/reference audit of the legacy Android dashboard subtree**. Old Android dashboard classes, ViewModels, layouts, tests, and chart dependencies will only be removed after proving they are no longer required by current Child flows or test coverage.
+Completed cleanup work includes:
+
+- decomposition of the former `MonitoringService` monolith;
+- server-authoritative pairing, commands, Parent time-request resolution, and Child security alerts;
+- removal of the legacy Parent Android dashboard subtree;
+- residual Android dead-code and dependency cleanup;
+- CI protection for the Android instrumented-test source set.
+
+The next engineering work should focus on product/runtime modernization rather than more broad deletion: API-level/lifecycle modernization, Android FCM registration and delivery support, Child UI correctness, and eventually a separate Parent Android application if mobile Parent support is required.
 
 ## Documentation
 
-Useful repository documents include:
+Current operational documents:
 
-- `BACKEND_ARCHITECTURE.md`
-- `CI_AND_TESTING.md`
-- `FIRESTORE_CONTRACT.md`
-- `TESTING.md`
-- `TEST_QUICK_REF.md`
-- `INCIDENT_LOGGING_MAP.md`
-- `DEPLOYMENT.md`
-- `KNOWN_LIMITATIONS.md`
+- `FIRESTORE_CONTRACT.md` - canonical Firestore/control-plane contract
+- `BACKEND_ARCHITECTURE.md` - current backend architecture
+- `REALTIME_OPERATIONS.md` - live runtime data flows
+- `CI_AND_TESTING.md` - CI gates and validation commands
+- `TESTING.md` - Android and backend test scope
+- `FIRESTORE_RULES_TEST_PLAN.md` - authorization/callable scenario inventory
+- `E2E_TEST_PLAN.md` - manual live-system validation
+- `DEPLOYMENT.md` - manual Firebase deployment
+- `KNOWN_LIMITATIONS.md` - unresolved technical/product constraints
 
-## Contribution
+Historical implementation reports should be obtained from git history rather than treated as current operational guidance.
 
-Changes should preserve Child protection behavior, Parent/Child authorization boundaries, and the verified CI gates. Prefer focused components and evidence-driven cleanup over large unverified rewrites.
+## Contribution guardrails
+
+Changes should preserve:
+
+- Parent/Child authorization boundaries;
+- callable ownership/control transitions;
+- Child protection/enforcement behavior unless intentionally changed;
+- the five blocking CI jobs;
+- Room schema compatibility unless a migration is explicitly planned and tested.
+
+Prefer small, evidence-backed slices over large unverified rewrites.
