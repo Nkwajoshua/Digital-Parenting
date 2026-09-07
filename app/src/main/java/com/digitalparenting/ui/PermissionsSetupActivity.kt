@@ -15,6 +15,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.digitalparenting.R
 import com.digitalparenting.service.MonitoringService
+import com.digitalparenting.util.AccessibilityConsentState
 
 class PermissionsSetupActivity : EdgeToEdgeActivity() {
 
@@ -22,8 +23,6 @@ class PermissionsSetupActivity : EdgeToEdgeActivity() {
         const val EXTRA_STEP = "extra_step"
 
         private const val PREFS_NAME = "child_permission_setup"
-        private const val KEY_ACCESSIBILITY_CONSENT_VERSION = "accessibility_consent_version"
-        private const val ACCESSIBILITY_CONSENT_VERSION = 1
         private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
     }
 
@@ -128,7 +127,7 @@ class PermissionsSetupActivity : EdgeToEdgeActivity() {
 
     private fun bindAccessibilityStep() {
         val enabled = isAccessibilityEnabled()
-        val consented = hasAccessibilityDisclosureConsent()
+        val consented = AccessibilityConsentState.hasCurrentConsent(this)
 
         tvPermissionStatus.text = when {
             enabled && consented -> "ENABLED"
@@ -179,7 +178,9 @@ class PermissionsSetupActivity : EdgeToEdgeActivity() {
     }
 
     private fun bindNotificationStep() {
-        val coreReady = isAccessibilityEnabled() && Settings.canDrawOverlays(this)
+        val coreReady = isAccessibilityEnabled() &&
+            AccessibilityConsentState.hasCurrentConsent(this) &&
+            Settings.canDrawOverlays(this)
         val notificationGranted = hasNotificationPermission()
         val notificationRequested = hasRequestedNotificationPermission()
 
@@ -231,7 +232,7 @@ class PermissionsSetupActivity : EdgeToEdgeActivity() {
             )
             .setNegativeButton("Not now", null)
             .setPositiveButton("I agree") { _, _ ->
-                recordAccessibilityDisclosureConsent()
+                AccessibilityConsentState.recordCurrentConsent(this)
                 onAccepted()
             }
             .setCancelable(true)
@@ -253,18 +254,6 @@ class PermissionsSetupActivity : EdgeToEdgeActivity() {
         intent.putExtra(EXTRA_STEP, targetStep)
         startActivity(intent)
         finish()
-    }
-
-    private fun hasAccessibilityDisclosureConsent(): Boolean {
-        return permissionPrefs().getInt(KEY_ACCESSIBILITY_CONSENT_VERSION, 0) >=
-            ACCESSIBILITY_CONSENT_VERSION
-    }
-
-    private fun recordAccessibilityDisclosureConsent() {
-        permissionPrefs()
-            .edit()
-            .putInt(KEY_ACCESSIBILITY_CONSENT_VERSION, ACCESSIBILITY_CONSENT_VERSION)
-            .apply()
     }
 
     private fun hasRequestedNotificationPermission(): Boolean {
