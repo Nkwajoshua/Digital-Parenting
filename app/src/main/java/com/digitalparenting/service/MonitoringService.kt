@@ -17,6 +17,14 @@ import com.digitalparenting.util.ProtectionStateManager
 
 class MonitoringService : Service() {
 
+    companion object {
+        const val ACTION_REFRESH_STATUS = "com.digitalparenting.action.REFRESH_STATUS"
+
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+    }
+
     private lateinit var notificationHelper: NotificationHelper
     private val handler = Handler(Looper.getMainLooper())
 
@@ -105,6 +113,7 @@ class MonitoringService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
 
         notificationHelper = NotificationHelper(this)
         notificationHelper.createChannels()
@@ -124,16 +133,21 @@ class MonitoringService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        isRunning = false
         timeRequestController.stop()
         commandController.stop()
         childStatusPublisher.stop()
         authCoordinator.stop()
         blockingUiController.hideOverlay()
         foregroundSessionTracker.finishCurrentSession()
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_REFRESH_STATUS) {
+            childStatusPublisher.publishNow()
+            fcmTokenRegistrar.registerCurrentToken()
+        }
         return START_STICKY
     }
 
