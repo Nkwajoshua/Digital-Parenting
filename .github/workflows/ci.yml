@@ -88,6 +88,38 @@ jobs:
           --only firestore
           "npm --prefix tests/firestore-rules test"
 
+  callable-integration:
+    name: Callable Control Plane Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install Functions dependencies
+        run: npm --prefix functions install --no-audit --no-fund
+
+      - name: Install callable integration dependencies
+        run: npm --prefix tests/functions-integration install --no-audit --no-fund
+
+      - name: Run Auth + Functions + Firestore callable suite
+        run: >-
+          npx --yes firebase-tools@15.29.0 emulators:exec
+          --project demo-digital-parenting-callables
+          --only auth,firestore,functions
+          "npm --prefix tests/functions-integration test"
+
   android:
     name: Android Build
     runs-on: ubuntu-latest
