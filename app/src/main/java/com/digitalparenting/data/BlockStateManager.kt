@@ -14,6 +14,19 @@ object BlockStateManager {
     }
 
     @Synchronized
+    fun replaceState(packages: Set<String>, modes: Map<String, BlockMode>) {
+        blockedPackages.clear()
+        blockedPackages.addAll(packages)
+        blockModes.clear()
+        blockModes.putAll(modes)
+    }
+
+    @Synchronized
+    fun snapshotState(): Pair<Set<String>, Map<String, BlockMode>> {
+        return blockedPackages.toSet() to blockModes.toMap()
+    }
+
+    @Synchronized
     fun removeBlocked(packageName: String) {
         blockedPackages.remove(packageName)
         blockModes.remove(packageName)
@@ -34,10 +47,12 @@ object BlockStateManager {
         blockModes.clear()
     }
 
+    @Synchronized
     fun isBlocked(pkg: String): Boolean {
         return blockedPackages.contains(pkg)
     }
 
+    @Synchronized
     fun getBlockMode(pkg: String): BlockMode {
         return blockModes[pkg] ?: BlockMode.NONE
     }
