@@ -1,21 +1,72 @@
 # Developer Commands
 
-## Parent dashboard (web)
-- Install: `cd parent-dashboard-web && npm install`
-- Env check: `cd parent-dashboard-web && npm run check:env`
-- Build: `cd parent-dashboard-web && npm run build`
-- Smoke: `cd parent-dashboard-web && npm run smoke`
+## Parent Web
 
-## Cloud Functions
-- Install: `cd functions && npm install`
-- Syntax check: `cd functions && npm run check`
-- Lint placeholder: `cd functions && npm run lint`
+```bash
+cd parent-dashboard-web
+npm ci
+npm run check:env
+npm run lint
+npm run build
+npm run smoke
+```
 
-## Android app
-- Assemble debug: `./gradlew assembleDebug`
+Development server:
 
-## Firestore rules validation
-- If Firebase CLI is installed:
-  - `firebase emulators:exec --only firestore "echo rules-check"`
-- Deploy rules only:
-  - `firebase deploy --only firestore:rules`
+```bash
+cd parent-dashboard-web
+npm run dev
+```
+
+## Firebase Functions
+
+```bash
+cd functions
+npm install --no-audit --no-fund
+npm run check
+```
+
+`npm run lint` currently only prints a placeholder message and is not a substantive lint gate.
+
+## Firestore authorization tests
+
+```bash
+npm --prefix tests/firestore-rules install --no-audit --no-fund
+npx --yes firebase-tools@15.29.0 emulators:exec \
+  --project demo-digital-parenting-rules \
+  --only firestore \
+  "npm --prefix tests/firestore-rules test"
+```
+
+## Callable control-plane tests
+
+```bash
+npm --prefix functions install --no-audit --no-fund
+npm --prefix tests/functions-integration install --no-audit --no-fund
+npx --yes firebase-tools@15.29.0 emulators:exec \
+  --project demo-digital-parenting-callables \
+  --only auth,firestore,functions \
+  "npm --prefix tests/functions-integration test"
+```
+
+## Android Child app
+
+`gradle-wrapper.jar` is currently absent, so use Gradle 8.5 directly unless the wrapper has been restored.
+
+```bash
+# App APK
+gradle --no-daemon assembleDebug
+
+# Instrumented-test APK compile
+gradle --no-daemon assembleDebugAndroidTest
+
+# Install app on connected device/emulator
+gradle --no-daemon installDebug
+
+# Execute instrumented tests on connected device/emulator
+gradle --no-daemon connectedAndroidTest
+```
+
+## Firebase deployment
+
+Follow `DEPLOYMENT.md`. For control-plane changes, do not casually deploy stricter rules independently of their compatible Functions/client behavior.
