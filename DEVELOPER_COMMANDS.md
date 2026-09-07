@@ -45,7 +45,7 @@ npm --prefix functions install --no-audit --no-fund
 npm --prefix tests/functions-integration install --no-audit --no-fund
 npx --yes firebase-tools@15.29.0 emulators:exec \
   --project demo-digital-parenting-callables \
-  --only auth,firestore,functions
+  --only auth,firestore,functions \
   "npm --prefix tests/functions-integration test"
 ```
 
