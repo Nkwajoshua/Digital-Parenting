@@ -3,10 +3,7 @@ package com.digitalparenting.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
-import android.graphics.PixelFormat
 import android.os.*
-import android.view.LayoutInflater
-import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import android.app.usage.UsageStatsManager
 import com.digitalparenting.util.NotificationHelper
@@ -14,7 +11,6 @@ import com.digitalparenting.util.ProtectionStateManager
 import android.app.usage.UsageEvents
 import android.provider.Settings
 import android.util.Log
-import com.digitalparenting.R
 import com.digitalparenting.data.AppSession
 import com.digitalparenting.data.BehaviorAnalyzer
 import com.digitalparenting.data.BehaviorRecord
@@ -35,8 +31,6 @@ import com.digitalparenting.data.local.AppUsageStats
 import com.digitalparenting.data.local.BehaviorRecordDao
 import com.google.firebase.auth.FirebaseAuth
 import com.digitalparenting.data.local.UserProfileDao
-import com.digitalparenting.ui.BlockActivity
-import com.digitalparenting.ui.BlockedActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -56,18 +50,14 @@ class MonitoringService : Service() {
     private var accessibilityAlertShown = false
     private var overlayAlertShown = false
     private var currentBlockedPackage: String? = null
-    private var blockedScreenShowingFor: String? = null
-    private var lastBlockedLaunchTime: Long = 0L
-    private val blockedActivityIntent by lazy {
-        Intent(this, BlockActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-    }
     private val usageSyncRepository = UsageSyncRepository()
     private val securityAlertReporter by lazy { ChildSecurityAlertReporter() }
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
+    private val blockingUiController by lazy { ChildBlockingUiController(this) }
     private val commandController by lazy {
         ChildCommandController(
             limitDao = limitDao,
-            onBlockRequested = ::launchBlockedScreen
+            onBlockRequested = blockingUiController::launchBlockedScreen
         )
     }
     private val timeRequestController by lazy {
@@ -90,8 +80,6 @@ class MonitoringService : Service() {
     private lateinit var userProfileDao: UserProfileDao
     private lateinit var predictionRecordDao: com.digitalparenting.data.local.PredictionRecordDao
     private lateinit var incidentDao: com.digitalparenting.data.local.ProtectionIncidentDao
-    private var overlayView: android.view.View? = null
-    private lateinit var windowManager: WindowManager
     private val behaviorAnalyzer = BehaviorAnalyzer()
     private val behaviorPredictor = BehaviorPredictor()
     private val interventionEngine = InterventionEngine()
@@ -121,7 +109,6 @@ class MonitoringService : Service() {
         userProfileDao = database.userProfileDao()
         predictionRecordDao = database.predictionRecordDao()
         incidentDao = database.protectionIncidentDao()
-        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         behaviorPredictor.loadState(this)
         println("Loaded BehaviorPredictor state: ${behaviorPredictor.getMetrics()}")
@@ -168,7 +155,7 @@ class MonitoringService : Service() {
         childStatusPublisher.stop()
         authStateListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
         authStateListener = null
-        hideBlockOverlay()
+        blockingUiController.hideOverlay()
         currentSession?.let {
             it.endTime = System.currentTimeMillis()
             logSession(it)
@@ -218,9 +205,9 @@ class MonitoringService : Service() {
 
     private fun enforceBlockState() {
         if (currentApp != null && BlockStateManager.isBlocked(currentApp!!)) {
-            showBlockOverlay()
+            blockingUiController.showBlockOverlay(currentApp)
         } else {
-            hideBlockOverlay()
+            blockingUiController.hideOverlay()
         }
 
         verifyProtectionState()
@@ -317,21 +304,21 @@ class MonitoringService : Service() {
                 BlockMode.NONE -> {
                     BlockStateManager.clearBlocked()
                     ProtectionStateManager.clearPersistedBlockState(this@MonitoringService)
-                    handler.post { hideBlockOverlay() }
+                    handler.post { blockingUiController.hideOverlay() }
                 }
                 BlockMode.WARNING -> {
                     BlockStateManager.removeBlocked(newApp)
-                    handler.post { showWarningOverlay() }
+                    handler.post { blockingUiController.showWarningOverlay(currentApp) }
                 }
                 BlockMode.DELAY -> {
                     BlockStateManager.removeBlocked(newApp)
                     handler.postDelayed({
-                        showBlockOverlay()
+                        blockingUiController.showBlockOverlay(currentApp)
                     }, 5000)
                 }
                 BlockMode.BLOCKED -> {
                     BlockStateManager.setBlocked(setOf(newApp))
-                    handler.post { showBlockOverlay() }
+                    handler.post { blockingUiController.showBlockOverlay(currentApp) }
                     notificationHelper.showChildAlert(
                         "App Blocked",
                         "$newApp was blocked due to limit or risk level"
@@ -411,37 +398,10 @@ class MonitoringService : Service() {
 
         if (todayUsage >= maxMillis) {
             currentBlockedPackage = packageName
-            launchBlockedScreen(appName, packageName, "Daily limit exceeded")
+            blockingUiController.launchBlockedScreen(appName, packageName, "Daily limit exceeded")
 
             val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
             am.killBackgroundProcesses(packageName)
-        }
-    }
-
-    private fun launchBlockedScreen(appName: String, appPackage: String, reason: String) {
-        val now = System.currentTimeMillis()
-
-        if (blockedScreenShowingFor == appPackage && now - lastBlockedLaunchTime < 3000) {
-            return
-        }
-
-        blockedScreenShowingFor = appPackage
-        lastBlockedLaunchTime = now
-
-        val intent = Intent(this, BlockedActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            putExtra("appName", appName)
-            putExtra("appPackage", appPackage)
-            putExtra("reason", reason)
-        }
-
-        startActivity(intent)
-    }
-
-    private fun clearBlockedScreenStateIfNeeded(currentApp: String?) {
-        if (currentApp == null) return
-        if (blockedScreenShowingFor != null && blockedScreenShowingFor != currentApp) {
-            blockedScreenShowingFor = null
         }
     }
 
@@ -452,91 +412,6 @@ class MonitoringService : Service() {
             pm.getApplicationLabel(appInfo).toString()
         } catch (e: Exception) {
             packageName
-        }
-    }
-
-    private fun showBlockOverlay() {
-        if (overlayView != null) {
-            println("Overlay already active")
-            return
-        }
-
-        if (!Settings.canDrawOverlays(this)) {
-            println("No overlay permission")
-            return
-        }
-
-        try {
-            overlayView = LayoutInflater.from(this).inflate(R.layout.block_overlay, null)
-
-            val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.OPAQUE
-            )
-
-            windowManager.addView(overlayView, params)
-            println("✅ Block overlay shown for: $currentApp")
-        } catch (e: Exception) {
-            println("❌ Error showing overlay: ${e.message}")
-            overlayView = null
-            e.printStackTrace()
-        }
-    }
-
-    private fun hideBlockOverlay() {
-        if (overlayView != null) {
-            try {
-                windowManager.removeView(overlayView)
-                println("✅ Block overlay hidden")
-            } catch (e: Exception) {
-                println("❌ Error hiding overlay: ${e.message}")
-                e.printStackTrace()
-            } finally {
-                overlayView = null
-            }
-        }
-    }
-
-    private fun showWarningOverlay() {
-        if (overlayView != null) {
-            println("Warning overlay already active")
-            return
-        }
-
-        if (!Settings.canDrawOverlays(this)) {
-            println("No overlay permission")
-            return
-        }
-
-        try {
-            overlayView = LayoutInflater.from(this).inflate(R.layout.block_overlay, null)
-
-            val titleView = overlayView?.findViewById<android.widget.TextView>(R.id.overlayTitle)
-            val textView = overlayView?.findViewById<android.widget.TextView>(R.id.overlayText)
-            titleView?.text = "⚠️ Warning"
-            textView?.text = "You've been using this app for a while. Consider taking a break."
-
-            val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.OPAQUE
-            )
-
-            windowManager.addView(overlayView, params)
-            println("✅ Warning overlay shown for: $currentApp")
-        } catch (e: Exception) {
-            println("❌ Error showing warning overlay: ${e.message}")
-            overlayView = null
-            e.printStackTrace()
         }
     }
 
