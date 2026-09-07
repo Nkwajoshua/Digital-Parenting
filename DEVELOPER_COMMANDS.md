@@ -45,13 +45,15 @@ npm --prefix functions install --no-audit --no-fund
 npm --prefix tests/functions-integration install --no-audit --no-fund
 npx --yes firebase-tools@15.29.0 emulators:exec \
   --project demo-digital-parenting-callables \
-  --only auth,firestore,functions \
+  --only auth,firestore,functions
   "npm --prefix tests/functions-integration test"
 ```
 
 ## Android Child app
 
-`gradle-wrapper.jar` is currently absent, so use Gradle 8.5 directly unless the wrapper has been restored.
+Android currently uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 34`. The target SDK is intentionally pinned until the remaining Phase 6 runtime-compatibility work is complete.
+
+`gradle-wrapper.jar` is currently absent. Use Gradle 8.11.1 directly unless the wrapper has been fully restored.
 
 ```bash
 # App APK
