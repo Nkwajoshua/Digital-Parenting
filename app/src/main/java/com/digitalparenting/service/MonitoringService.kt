@@ -9,7 +9,6 @@ import android.app.usage.UsageStatsManager
 import com.digitalparenting.util.NotificationHelper
 import com.digitalparenting.util.ProtectionStateManager
 import android.app.usage.UsageEvents
-import android.provider.Settings
 import android.util.Log
 import com.digitalparenting.data.AppSession
 import com.digitalparenting.data.BehaviorAnalyzer
@@ -47,13 +46,17 @@ class MonitoringService : Service() {
 
     private var currentApp: String? = null
     private var currentSession: AppSession? = null
-    private var accessibilityAlertShown = false
-    private var overlayAlertShown = false
     private var currentBlockedPackage: String? = null
     private val usageSyncRepository = UsageSyncRepository()
-    private val securityAlertReporter by lazy { ChildSecurityAlertReporter() }
     private val childStatusPublisher by lazy { ChildStatusPublisher(this) }
     private val blockingUiController by lazy { ChildBlockingUiController(this) }
+    private val protectionHealthController by lazy {
+        ChildProtectionHealthController(
+            context = this,
+            notificationHelper = notificationHelper,
+            onIncident = ::logIncident
+        )
+    }
     private val commandController by lazy {
         ChildCommandController(
             limitDao = limitDao,
@@ -184,15 +187,6 @@ class MonitoringService : Service() {
         super.onTaskRemoved(rootIntent)
     }
 
-    private fun createPermissionAlert(type: String, title: String, body: String, severity: String) {
-        securityAlertReporter.report(
-            type = type,
-            title = title,
-            body = body,
-            severity = severity
-        )
-    }
-
     private fun startMonitoring() {
         handler.post(object : Runnable {
             override fun run() {
@@ -210,7 +204,7 @@ class MonitoringService : Service() {
             blockingUiController.hideOverlay()
         }
 
-        verifyProtectionState()
+        protectionHealthController.verify()
         updateForegroundNotification()
     }
 
@@ -474,29 +468,6 @@ class MonitoringService : Service() {
         return java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
     }
 
-    private fun isAccessibilityEnabled(): Boolean {
-        return try {
-            val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-                ?: return false
-
-            enabledServices.contains(packageName ?: "")
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-
-    private fun launchAccessibilitySettings() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        startActivity(intent)
-    }
-
-    private fun launchOverlaySettings() {
-        startActivity(ProtectionStateManager.buildOverlaySettingsIntent(this))
-    }
-
     private fun restoreProtectionState() {
         val snapshot = ProtectionStateManager.restoreBlockState(this)
         if (snapshot.blockedPackages.isNotEmpty()) {
@@ -504,51 +475,6 @@ class MonitoringService : Service() {
             snapshot.blockModes.forEach { (pkg, mode) ->
                 BlockStateManager.setBlockMode(pkg, mode)
             }
-        }
-    }
-
-    private fun verifyProtectionState() {
-        val accessibilityEnabled = ProtectionStateManager.isAccessibilityEnabled(this)
-        val overlayGranted = ProtectionStateManager.isOverlayPermissionGranted(this)
-
-        if (!accessibilityEnabled) {
-            if (!accessibilityAlertShown) {
-                launchAccessibilitySettings()
-                notificationHelper.showSecurityAlert(
-                    "Protection Weakened",
-                    "Accessibility service is disabled. Re-enable it to continue protection."
-                )
-                logIncident(
-                    "accessibility_disabled",
-                    "Protection Weakened",
-                    "Accessibility service is disabled. Re-enable it to continue protection.",
-                    null
-                )
-                createPermissionAlert("permissions_revoked", "Accessibility Disabled", "Accessibility was disabled on child device.", "critical")
-                accessibilityAlertShown = true
-            }
-        } else {
-            accessibilityAlertShown = false
-        }
-
-        if (!overlayGranted) {
-            if (!overlayAlertShown) {
-                launchOverlaySettings()
-                notificationHelper.showSecurityAlert(
-                    "Overlay Permission Missing",
-                    "Overlay permission is required for app blocking."
-                )
-                logIncident(
-                    "overlay_missing",
-                    "Overlay Permission Missing",
-                    "Overlay permission is required for app blocking.",
-                    null
-                )
-                createPermissionAlert("permissions_revoked", "Overlay Permission Revoked", "Overlay permission was revoked on child device.", "warning")
-                overlayAlertShown = true
-            }
-        } else {
-            overlayAlertShown = false
         }
     }
 
