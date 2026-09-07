@@ -1,7 +1,7 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#F7F8F9" />
-    <corners android:radius="18dp" />
+    <solid android:color="@color/surface_card" />
+    <corners android:radius="14dp" />
     <stroke
         android:width="1dp"
-        android:color="#DCE1E5" />
+        android:color="@color/border_subtle" />
 </shape>

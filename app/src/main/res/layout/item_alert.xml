@@ -13,7 +13,7 @@
         android:background="@drawable/bg_circle_muted"
         android:gravity="center"
         android:text="!"
-        android:textColor="#2F879C"
+        android:textColor="@color/brand_primary"
         android:textStyle="bold"
         android:textSize="18sp" />
 
@@ -23,6 +23,6 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="14dp"
         android:layout_weight="1"
-        android:textColor="#1A1D1F"
+        android:textColor="@color/text_primary"
         android:textSize="16sp" />
 </LinearLayout>

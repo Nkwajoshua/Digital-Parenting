@@ -17,7 +17,7 @@
         android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="false"
         android:label="Digital Parenting"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@style/Theme.DigitalParenting">
 
         <!-- Child bootstrap: authenticate first, then route to pairing or home. -->
         <activity

@@ -2,7 +2,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F3F4F5">
+    android:background="@color/surface_background"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,7 +13,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="140dp"
-            android:background="#0E2B16"
+            android:background="@color/brand_dark"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:padding="20dp">
@@ -23,6 +24,7 @@
                 android:background="@drawable/bg_circle_dark"
                 android:gravity="center"
                 android:text="🛡️"
+                android:importantForAccessibility="no"
                 android:textSize="26sp" />
 
             <LinearLayout
@@ -45,7 +47,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="INACTIVE"
-                    android:textColor="#93C6A0"
+                    android:textColor="@color/brand_on_dark"
                     android:textSize="16sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -68,7 +70,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Core Systems"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -87,7 +89,8 @@
                         android:background="@drawable/bg_circle_muted"
                         android:gravity="center"
                         android:text="👤"
-                        android:textColor="#2F879C"
+                        android:textColor="@color/brand_primary"
+                        android:importantForAccessibility="no"
                         android:textSize="18sp" />
 
                     <LinearLayout
@@ -101,7 +104,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Accessibility"
-                            android:textColor="#1A1D1F"
+                            android:textColor="@color/text_primary"
                             android:textSize="20sp"
                             android:textStyle="bold" />
 
@@ -109,7 +112,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Foreground app detection"
-                            android:textColor="#8B9096"
+                            android:textColor="@color/text_secondary"
                             android:textSize="15sp" />
                     </LinearLayout>
 
@@ -123,7 +126,7 @@
                         android:paddingRight="12dp"
                         android:paddingBottom="6dp"
                         android:text="OFF"
-                        android:textColor="#56705A"
+                        android:textColor="@color/status_text"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -142,7 +145,8 @@
                         android:background="@drawable/bg_circle_muted"
                         android:gravity="center"
                         android:text="▦"
-                        android:textColor="#2F879C"
+                        android:textColor="@color/brand_primary"
+                        android:importantForAccessibility="no"
                         android:textSize="18sp" />
 
                     <LinearLayout
@@ -156,7 +160,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Display Overlay"
-                            android:textColor="#1A1D1F"
+                            android:textColor="@color/text_primary"
                             android:textSize="20sp"
                             android:textStyle="bold" />
 
@@ -164,7 +168,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Blocking UI permission"
-                            android:textColor="#8B9096"
+                            android:textColor="@color/text_secondary"
                             android:textSize="15sp" />
                     </LinearLayout>
 
@@ -178,7 +182,7 @@
                         android:paddingRight="12dp"
                         android:paddingBottom="6dp"
                         android:text="OFF"
-                        android:textColor="#56705A"
+                        android:textColor="@color/status_text"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -197,7 +201,8 @@
                         android:background="@drawable/bg_circle_muted"
                         android:gravity="center"
                         android:text="☁"
-                        android:textColor="#2F879C"
+                        android:textColor="@color/brand_primary"
+                        android:importantForAccessibility="no"
                         android:textSize="18sp" />
 
                     <LinearLayout
@@ -211,7 +216,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Cloud Status"
-                            android:textColor="#1A1D1F"
+                            android:textColor="@color/text_primary"
                             android:textSize="20sp"
                             android:textStyle="bold" />
 
@@ -219,7 +224,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Recent successful Child status write"
-                            android:textColor="#8B9096"
+                            android:textColor="@color/text_secondary"
                             android:textSize="15sp" />
                     </LinearLayout>
 
@@ -233,7 +238,7 @@
                         android:paddingRight="12dp"
                         android:paddingBottom="6dp"
                         android:text="WAITING"
-                        android:textColor="#56705A"
+                        android:textColor="@color/status_text"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
@@ -243,7 +248,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:text="QUICK ACTIONS"
-                android:textColor="#8B9096"
+                android:textColor="@color/text_tertiary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
@@ -262,7 +267,7 @@
                     android:background="@drawable/bg_white_card"
                     android:text="Refresh Status"
                     android:textAllCaps="false"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp" />
 
                 <Button
@@ -274,7 +279,7 @@
                     android:background="@drawable/bg_white_card"
                     android:text="Verify Permissions"
                     android:textAllCaps="false"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp" />
             </LinearLayout>
 
@@ -293,7 +298,7 @@
                     android:background="@drawable/bg_white_card"
                     android:text="Diagnostics"
                     android:textAllCaps="false"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp" />
 
                 <Button
@@ -305,7 +310,7 @@
                     android:background="@drawable/bg_white_card"
                     android:text="Alerts"
                     android:textAllCaps="false"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp" />
             </LinearLayout>
 
@@ -321,7 +326,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Device Identity"
-                    android:textColor="#1A1D1F"
+                    android:textColor="@color/text_primary"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -335,14 +340,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Device Name"
-                        android:textColor="#8B9096"
+                        android:textColor="@color/text_secondary"
                         android:textSize="15sp" />
 
                     <TextView
                         android:id="@+id/tvDeviceName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="#1A1D1F"
+                        android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -357,14 +362,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Android Version"
-                        android:textColor="#8B9096"
+                        android:textColor="@color/text_secondary"
                         android:textSize="15sp" />
 
                     <TextView
                         android:id="@+id/tvAndroidVersion"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="#1A1D1F"
+                        android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -379,14 +384,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Child UID"
-                        android:textColor="#8B9096"
+                        android:textColor="@color/text_secondary"
                         android:textSize="15sp" />
 
                     <TextView
                         android:id="@+id/tvAgentId"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="#1A1D1F"
+                        android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
                 </LinearLayout>
