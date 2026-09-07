@@ -9,9 +9,6 @@ interface AppSessionDao {
     @Insert
     suspend fun insertSession(session: AppSessionEntity)
 
-    @Query("SELECT * FROM app_sessions ORDER BY startTime DESC")
-    suspend fun getAllSessions(): List<AppSessionEntity>
-
     @Query("SELECT * FROM app_sessions WHERE packageName = :packageName ORDER BY startTime DESC")
     suspend fun getSessionsForApp(packageName: String): List<AppSessionEntity>
 
