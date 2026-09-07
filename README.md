@@ -57,6 +57,10 @@ Firestore rules deny the corresponding direct client writes. See `FIRESTORE_CONT
 
 Persisted block state is shared through `ProtectionStateManager`. Both the monitoring runtime and AccessibilityService can hydrate the in-memory enforcement state, so accessibility enforcement no longer depends on `MonitoringService` being the component that restored the state first.
 
+`MonitoringService` uses Android's `specialUse` foreground-service classification for continuous Child-device parental-control monitoring and app-limit enforcement. API 34+ promotion is performed with `ServiceCompat.startForeground(...)` using the matching typed service flag. Older supported Android versions retain the compatible no-type foreground promotion path.
+
+Runtime recovery uses `START_STICKY` together with a guarded `BOOT_COMPLETED` receiver for authenticated, paired Child devices. The previous `onTaskRemoved()` AlarmManager self-restart path has been removed.
+
 ## Repository structure
 
 - `app/` - Child Android application
@@ -165,9 +169,10 @@ Completed cleanup/modernization work includes:
 - residual Android dead-code and dependency cleanup;
 - CI protection for the Android instrumented-test source set;
 - API-36-capable Android build tooling while retaining target-34 runtime behavior;
-- persisted block-state recovery that can be hydrated by AccessibilityService independently of `MonitoringService` startup.
+- persisted block-state recovery that can be hydrated by AccessibilityService independently of `MonitoringService` startup;
+- foreground-service reclassification from `dataSync` to a declared parental-control `specialUse` service, with typed API 34+ promotion and removal of AlarmManager self-resurrection.
 
-The next engineering work should focus on Android runtime modernization: foreground-service classification/recovery behavior, edge-to-edge and predictive-back compatibility, notification permission/disclosure flows, final `targetSdk 36` validation, Android FCM registration/delivery, and remaining Child UI correctness.
+The next engineering work should focus on the remaining Android runtime modernization: edge-to-edge and predictive-back compatibility, notification permission/disclosure flows, final `targetSdk 36` validation, Android FCM registration/delivery, and remaining Child UI correctness.
 
 ## Documentation
 
