@@ -7,13 +7,9 @@ import androidx.room.Query
 
 @Dao
 interface AppLimitDao {
-    
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun setLimit(limit: AppLimit)
 
     @Query("SELECT * FROM app_limits WHERE packageName = :pkg")
     suspend fun getLimit(pkg: String): AppLimit?
-
-    @Query("SELECT * FROM app_limits")
-    suspend fun getAllLimits(): List<AppLimit>
 }
