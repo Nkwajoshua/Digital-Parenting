@@ -1,15 +1,18 @@
 package com.digitalparenting.service
 
-import android.app.*
-import android.content.Context
+import android.app.Service
 import android.content.Intent
-import android.os.*
-import com.digitalparenting.util.NotificationHelper
-import com.digitalparenting.util.ProtectionStateManager
+import android.content.pm.ServiceInfo
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import androidx.core.app.ServiceCompat
 import com.digitalparenting.data.BlockStateManager
 import com.digitalparenting.data.local.AppDatabase
 import com.digitalparenting.data.local.AppLimitDao
 import com.digitalparenting.data.local.AppSessionDao
+import com.digitalparenting.util.NotificationHelper
+import com.digitalparenting.util.ProtectionStateManager
 
 class MonitoringService : Service() {
     // TODO(FCM): Register child device FCM token and store at children/{childUid}.fcmToken.
@@ -105,12 +108,7 @@ class MonitoringService : Service() {
 
         notificationHelper = NotificationHelper(this)
         notificationHelper.createChannels()
-        startForeground(
-            NotificationHelper.FOREGROUND_NOTIFICATION_ID,
-            notificationHelper.buildForegroundNotification(
-                "Monitoring usage and enforcing protections"
-            )
-        )
+        promoteToForeground("Monitoring usage and enforcing protections")
 
         database = AppDatabase.getDatabase(this)
         dao = database.appSessionDao()
@@ -137,26 +135,6 @@ class MonitoringService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return START_STICKY
-    }
-
-    override fun onTaskRemoved(rootIntent: Intent) {
-        val restartServiceIntent = Intent(
-            applicationContext,
-            MonitoringService::class.java
-        )
-        val restartPendingIntent = PendingIntent.getService(
-            applicationContext,
-            1,
-            restartServiceIntent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.set(
-            AlarmManager.ELAPSED_REALTIME,
-            SystemClock.elapsedRealtime() + 2000,
-            restartPendingIntent
-        )
-        super.onTaskRemoved(rootIntent)
     }
 
     private fun startMonitoring() {
@@ -196,9 +174,15 @@ class MonitoringService : Service() {
             }
         }
 
-        startForeground(
+        promoteToForeground(contentText)
+    }
+
+    private fun promoteToForeground(contentText: String) {
+        ServiceCompat.startForeground(
+            this,
             NotificationHelper.FOREGROUND_NOTIFICATION_ID,
-            notificationHelper.buildForegroundNotification(contentText)
+            notificationHelper.buildForegroundNotification(contentText),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         )
     }
 
