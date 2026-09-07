@@ -52,9 +52,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Run static syntax check
         run: npm run check
@@ -71,6 +73,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: tests/firestore-rules/package-lock.json
 
       - name: Setup Java 21
         uses: actions/setup-java@v4
@@ -79,7 +83,7 @@ jobs:
           java-version: 21
 
       - name: Install rules test dependencies
-        run: npm --prefix tests/firestore-rules install --no-audit --no-fund
+        run: npm --prefix tests/firestore-rules ci --no-audit --no-fund
 
       - name: Run Firestore emulator authorization suite
         run: >-
@@ -100,6 +104,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            functions/package-lock.json
+            tests/functions-integration/package-lock.json
 
       - name: Setup Java 21
         uses: actions/setup-java@v4
@@ -108,10 +116,10 @@ jobs:
           java-version: 21
 
       - name: Install Functions dependencies
-        run: npm --prefix functions install --no-audit --no-fund
+        run: npm --prefix functions ci --no-audit --no-fund
 
       - name: Install callable integration dependencies
-        run: npm --prefix tests/functions-integration install --no-audit --no-fund
+        run: npm --prefix tests/functions-integration ci --no-audit --no-fund
 
       - name: Run Auth + Functions + Firestore callable suite
         run: >-
@@ -134,19 +142,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Gradle 8.11.1
+      - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '8.11.1'
 
-      - name: Note wrapper limitation
-        run: |
-          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "::warning::gradle-wrapper.jar is not committed. CI will compile with provisioned Gradle 8.11.1 instead of ./gradlew."
-          fi
+      - name: Verify committed Gradle wrapper
+        run: ./gradlew --version
 
       - name: Assemble debug APK
-        run: gradle --no-daemon assembleDebug
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Compile Android instrumented test APK
-        run: gradle --no-daemon assembleDebugAndroidTest
+        run: ./gradlew --no-daemon assembleDebugAndroidTest
