@@ -34,23 +34,33 @@ service cloud.firestore {
         && childDoc(childUid).data.paired == true;
     }
 
+    // Use the candidate/current resource directly for children collection reads.
+    // Re-fetching the same wildcard document through get() can evaluate to null
+    // during list/query authorization.
+    function parentOwnsCurrentChild() {
+      return isParentIdentity()
+        && resource.data.parentUid == request.auth.uid
+        && resource.data.paired == true;
+    }
+
     match /parents/{parentUid} {
       allow read, write: if isParent(parentUid);
     }
 
     match /children/{childUid} {
-      allow read: if isChild(childUid) || parentOwnsChild(childUid);
+      allow read: if isChild(childUid) || parentOwnsCurrentChild();
 
       // Child ownership is established only by the server-side pairing callable.
       allow create: if false;
 
-      // Child-owned status and health updates only. Pairing ownership cannot be changed.
+      // Child-owned status and health updates only. Use affectedKeys(), not
+      // changedKeys(), so newly added/removed unauthorized fields are denied too.
       allow update: if isChild(childUid)
         && resource.data.paired == true
         && request.resource.data.parentUid == resource.data.parentUid
         && request.resource.data.pairingCode == resource.data.pairingCode
         && request.resource.data.paired == resource.data.paired
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'deviceName',
           'platform',
           'lastHeartbeatAt',
@@ -72,11 +82,11 @@ service cloud.firestore {
         ]);
 
       // Parent-managed profile/settings fields for an already linked child.
-      allow update: if parentOwnsChild(childUid)
+      allow update: if parentOwnsCurrentChild()
         && request.resource.data.parentUid == resource.data.parentUid
         && request.resource.data.paired == resource.data.paired
         && request.resource.data.pairingCode == resource.data.pairingCode
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name',
           'childName',
           'avatar',
@@ -109,7 +119,7 @@ service cloud.firestore {
           && request.resource.data.parentUid == resource.data.parentUid
           && request.resource.data.type == resource.data.type
           && request.resource.data.status in ['handled', 'failed']
-          && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status',
             'handledAt',
             'errorMessage',
@@ -178,7 +188,7 @@ service cloud.firestore {
       allow update: if isChild(resource.data.childUid)
         && resource.data.status == 'approved'
         && request.resource.data.status == 'applied'
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
           'appliedAt',
           'updatedAt'
@@ -205,7 +215,7 @@ service cloud.firestore {
 
       allow update: if isParent(resource.data.parentUid)
         && request.resource.data.parentUid == resource.data.parentUid
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'read',
           'readAt',
           'updatedAt'
