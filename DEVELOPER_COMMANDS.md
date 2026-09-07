@@ -53,6 +53,7 @@ Android uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 36`. The complete Gr
 
 ```bash
 ./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon assembleRelease
 ./gradlew --no-daemon assembleDebugAndroidTest
 ./gradlew --no-daemon installDebug
 ./gradlew --no-daemon connectedAndroidTest

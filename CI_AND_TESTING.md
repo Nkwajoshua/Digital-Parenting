@@ -55,10 +55,12 @@ The project commits a complete Gradle 8.11.1 wrapper and CI uses it directly wit
 ```bash
 ./gradlew --version
 ./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon assembleRelease
 ./gradlew --no-daemon assembleDebugAndroidTest
 ```
 
 Android uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 36`.
+`assembleRelease` is compile/package proof for the unsigned release variant; production signing remains external release work.
 
 ## 6. Android Instrumented Tests
 

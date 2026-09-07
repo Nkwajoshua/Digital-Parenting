@@ -47,6 +47,7 @@ Place Firebase Android configuration at `app/google-services.json`, then run:
 
 ```bash
 ./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon assembleRelease
 ./gradlew --no-daemon assembleDebugAndroidTest
 ```
 
@@ -95,7 +96,7 @@ The blocking workflow contains:
 5. Android Build
 6. Android Instrumented Tests
 
-Android Build uses the committed wrapper to compile both `assembleDebug` and `assembleDebugAndroidTest`.
+Android Build uses the committed wrapper to compile the debug APK, unsigned release APK, and instrumented-test APK.
 
 Android Instrumented Tests boots a hardware-accelerated API 35 emulator and executes `connectedDebugAndroidTest` as a separate blocking gate.
 
@@ -117,9 +118,12 @@ Major completed work includes:
 - live local Activity Alerts;
 - truthful Home/Diagnostics status and real refresh behavior;
 - committed Gradle wrapper and deterministic npm lockfiles for blocking CI packages.
+- disabled Android backup/device transfer for sensitive Child-local state and removed the unused Analytics dependency.
 
 ## Release boundary
 
 A green repository does not complete Play Console or physical-device release work. Production distribution still requires live pairing/enforcement/time-request/FCM/reboot/edge-to-edge/back testing plus accurate AccessibilityService, privacy/Data Safety, and `specialUse` foreground-service declarations.
 
 Current operational docs include `FIRESTORE_CONTRACT.md`, `BACKEND_ARCHITECTURE.md`, `REALTIME_OPERATIONS.md`, `CI_AND_TESTING.md`, `TESTING.md`, `E2E_TEST_PLAN.md`, `DEPLOYMENT.md`, and `KNOWN_LIMITATIONS.md`.
+
+Use `RELEASE_CHECKLIST.md` as the authoritative repository/external release gate.
