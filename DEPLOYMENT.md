@@ -6,7 +6,7 @@ The repository does not auto-deploy production on push. Firebase deployment is e
 
 For the current server-authoritative control plane, deploy compatible **Functions and Firestore rules together**. The manual workflow permits separate targets for maintenance, but a rules-only or functions-only rollout can create an incompatible authorization boundary if clients/server are not already compatible.
 
-Before deployment, use a commit whose five blocking CI jobs are green.
+Before deployment, use a commit whose six blocking CI jobs are green.
 
 ## Prerequisites
 

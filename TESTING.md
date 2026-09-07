@@ -17,6 +17,7 @@ The blocking Android jobs use the committed Gradle wrapper. The build job compil
 
 ```bash
 ./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon assembleRelease
 ./gradlew --no-daemon assembleDebugAndroidTest
 ```
 

@@ -151,6 +151,9 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew --no-daemon assembleDebug
 
+      - name: Assemble unsigned release APK
+        run: ./gradlew --no-daemon assembleRelease
+
       - name: Compile Android instrumented test APK
         run: ./gradlew --no-daemon assembleDebugAndroidTest
 

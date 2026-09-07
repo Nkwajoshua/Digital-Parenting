@@ -5,7 +5,7 @@ This file lists unresolved current constraints. Completed migrations are intenti
 ## Android automated testing
 
 - Blocking CI compiles both `assembleDebug` and `assembleDebugAndroidTest` with the committed Gradle wrapper.
-- CI does **not** currently execute `connectedAndroidTest` on an emulator/device.
+- Blocking CI executes `connectedDebugAndroidTest` on an API 35 emulator.
 - The retained **23 Android instrumented methods across five classes** cover Room protection-incident persistence, persisted block-state recovery, local Accessibility consent state, and identity-scoped Child status-sync evidence. They do not prove full foreground-service lifecycle behavior, Android permission-dialog UX, Accessibility event delivery, physical-device FCM delivery, Parent UI behavior, edge-to-edge visual correctness, predictive-back gesture behavior, or large-screen runtime behavior.
 - Firestore emulator tests verify the narrow Child-owned FCM-token write boundary, but cannot prove push transport on a device.
 
@@ -52,6 +52,7 @@ This file lists unresolved current constraints. Completed migrations are intenti
 ## Production readiness
 
 - Passing CI is necessary but not sufficient for release.
+- CI compiles an unsigned release APK. Production signing credentials and Play/App signing configuration are intentionally not stored in the repository.
 - Production release still requires live validation of pairing, disclosure/permissions, command enforcement, time requests, FCM, usage sync, permission recovery, foreground-service recovery, Activity Alerts, Home/Diagnostics refresh behavior, edge-to-edge/back behavior, device restart/process death, and supported Android versions.
 - Firebase deployment remains manual; compatible Functions and Firestore rules should be deployed as one coordinated control-plane release.
 
