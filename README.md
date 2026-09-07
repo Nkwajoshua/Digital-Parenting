@@ -93,7 +93,7 @@ functions -> Firebase backend
 - Firebase project configuration
 - Gradle 8.11.1
 
-Android currently uses AGP 8.10.1 with `compileSdk 36` and intentionally remains on `targetSdk 34` until the final Android 15/16 target-runtime validation is complete.
+Android uses AGP 8.10.1 with both `compileSdk 36` and `targetSdk 36`.
 
 `gradle-wrapper.jar` is not currently committed, so CI provisions Gradle 8.11.1 directly. Until the wrapper is restored, use a local Gradle 8.11.1 installation rather than relying on `./gradlew`.
 
@@ -161,7 +161,7 @@ The blocking GitHub Actions workflow contains five jobs:
 4. **Callable Control Plane Tests** - Auth + Functions + Firestore emulator integration suite
 5. **Android Build** - `assembleDebug` plus `assembleDebugAndroidTest`
 
-The Android CI job **compiles** the instrumented-test APK. It does not currently boot an emulator or execute `connectedAndroidTest`.
+The Android CI job compiles the target-36 app and instrumented-test APK. It does not currently boot an emulator or execute `connectedAndroidTest`.
 
 The current Android instrumented inventory is 18 methods across incident persistence, block-state recovery, and Accessibility consent-state coverage. See `TESTING.md` for scope and execution commands.
 
@@ -174,13 +174,15 @@ Completed cleanup/modernization work includes:
 - removal of the legacy Parent Android dashboard subtree;
 - residual Android dead-code and dependency cleanup;
 - CI protection for the Android instrumented-test source set;
-- API-36-capable Android build tooling while retaining target-34 runtime behavior;
+- API-36 Android build tooling and target-SDK migration;
 - persisted block-state recovery that can be hydrated by AccessibilityService independently of `MonitoringService` startup;
 - foreground-service reclassification from `dataSync` to a declared parental-control `specialUse` service, with typed API 34+ promotion and removal of AlarmManager self-resurrection;
 - shared View-system edge-to-edge inset handling plus predictive-back-safe blocked-screen back consumption;
 - versioned Accessibility disclosure consent, consent-gated Accessibility event handling, narrowed Accessibility event scope, and Android 13+ notification-permission handling.
 
-The next Android platform milestone is final `targetSdk 36` validation on the now-prepared runtime surfaces. Product/platform work after that includes Android FCM registration/delivery, live Activity Alerts data, Parent Android app work if still desired, and broader real-device/OEM validation.
+The Android platform migration is now at the target-36 compile baseline. Before production distribution, the prepared runtime still needs live Android 15/16 device/emulator validation, especially foreground-service/boot recovery, edge-to-edge and back behavior, permission/disclosure flows, notification denial behavior, and tablet/foldable resizing.
+
+Product/platform work after that includes Android FCM registration/delivery, live Activity Alerts data, Parent Android app work if still desired, and broader real-device/OEM validation.
 
 ## Google Play release boundary
 

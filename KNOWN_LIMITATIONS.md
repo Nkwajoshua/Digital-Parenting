@@ -4,19 +4,20 @@ This file lists unresolved current constraints. Completed Phase 2-6 migrations a
 
 ## Build and dependency reproducibility
 
-- Android uses AGP 8.10.1 with `compileSdk 36`, and CI provisions Gradle 8.11.1. `gradle/wrapper/gradle-wrapper.properties` is aligned to Gradle 8.11.1, but `gradle-wrapper.jar` is still not committed. Local developers therefore need a compatible Gradle installation until the wrapper is fully restored.
+- Android uses AGP 8.10.1 with `compileSdk 36` and `targetSdk 36`, and CI provisions Gradle 8.11.1. `gradle/wrapper/gradle-wrapper.properties` is aligned to Gradle 8.11.1, but `gradle-wrapper.jar` is still not committed. Local developers therefore need a compatible Gradle installation until the wrapper is fully restored.
 - `functions/` does not currently commit a `package-lock.json`, so Functions and callable CI install dependencies with `npm install` rather than deterministic `npm ci`.
 
 ## Android automated testing
 
 - Blocking CI compiles both `assembleDebug` and `assembleDebugAndroidTest`.
 - CI does **not** currently execute `connectedAndroidTest` on an emulator/device.
-- The retained 18 Android instrumented methods cover Room protection-incident persistence, persisted block-state recovery, and local Accessibility consent-state persistence. They do not prove full foreground-service lifecycle behavior, Android permission-dialog UX, Accessibility event delivery, cloud delivery, Parent UI behavior, edge-to-edge visual correctness, or predictive-back gesture behavior.
+- The retained 18 Android instrumented methods cover Room protection-incident persistence, persisted block-state recovery, and local Accessibility consent-state persistence. They do not prove full foreground-service lifecycle behavior, Android permission-dialog UX, Accessibility event delivery, cloud delivery, Parent UI behavior, edge-to-edge visual correctness, predictive-back gesture behavior, or large-screen runtime behavior.
 
 ## Android platform/runtime
 
-- The Child Android app compiles against API 36 but intentionally still targets API 34. The remaining platform migration is the final target-SDK 36 switch plus live Android 15/16 validation on the prepared runtime surfaces.
-- Layout-backed Child screens share edge-to-edge inset handling for system bars, display cutouts, and the IME. `BlockedActivity` uses `OnBackPressedDispatcher` rather than the legacy `onBackPressed()` override, preserving blocked-screen back consumption under modern back dispatch. These paths still require visual/gesture validation on Android 15/16 hardware or emulators before target 36 is released.
+- The Child Android app now compiles against and targets API 36. Repository CI proves target-36 compilation only; Android 15/16 runtime behavior still requires live device/emulator validation before production distribution.
+- Layout-backed Child screens share edge-to-edge inset handling for system bars, display cutouts, and the IME. `BlockedActivity` uses `OnBackPressedDispatcher` rather than the legacy `onBackPressed()` override, preserving blocked-screen back consumption under modern back dispatch. These paths still require visual/gesture validation on Android 15/16 hardware or emulators.
+- Android 16 ignores app orientation, resizability, and aspect-ratio restrictions on sufficiently large displays for target-36 apps. This project does not currently declare those restrictions, but tablet/foldable and multi-window layout behavior still needs live validation.
 - `MonitoringService` is classified as an Android `specialUse` foreground service for continuous Child-device parental-control monitoring and app-limit enforcement. Android 14+ therefore requires `FOREGROUND_SERVICE_SPECIAL_USE`, and Google Play distribution requires review of the declared free-form special-use subtype. A green repository build does not imply Play approval.
 - Monitoring recovery relies on `START_STICKY` plus the paired-child `BOOT_COMPLETED` receiver rather than an `onTaskRemoved()` AlarmManager self-restart. Real-device restart behavior, OEM process management, and Android 15/16 background-start behavior still require live validation.
 - Persisted block state can hydrate independently when `ChildAccessibilityService` connects, and Parent block/unblock commands persist their local block-state mutation. Real-device process-death and OEM recovery still require validation.
@@ -27,7 +28,7 @@ This file lists unresolved current constraints. Completed Phase 2-6 migrations a
 
 ## Google Play policy/release work
 
-- The app now contains an in-app AccessibilityService disclosure and affirmative consent gate for the parental-control use case, but Play distribution still requires completion and approval of the relevant AccessibilityService declaration in Play Console.
+- The app contains an in-app AccessibilityService disclosure and affirmative consent gate for the parental-control use case, but Play distribution still requires completion and approval of the relevant AccessibilityService declaration in Play Console.
 - The Play review process may require a demonstration video showing the disclosure, consent and refusal flows, plus a core feature using AccessibilityService.
 - The repository does not by itself provide or validate the final public privacy policy, Play Data Safety submission, or policy declarations for a production listing.
 - The `specialUse` foreground-service subtype also requires Play review. Repository CI proves build compatibility only, not policy approval.
@@ -50,8 +51,8 @@ This file lists unresolved current constraints. Completed Phase 2-6 migrations a
 
 ## Production readiness
 
-- Passing CI is necessary but not sufficient for a production release. The current five jobs prove web/functions builds, emulator-backed authorization/callable behavior, and Android app/test-APK compilation.
-- Production release still requires manual/live validation of pairing, disclosure/permission flows, command enforcement, time requests, usage sync, permission recovery, foreground-service recovery, edge-to-edge rendering, predictive-back behavior, device restart/process-death behavior, and supported Android versions.
+- Passing CI is necessary but not sufficient for a production release. The current five jobs prove web/functions builds, emulator-backed authorization/callable behavior, and target-36 Android app/test-APK compilation.
+- Production release still requires manual/live validation of pairing, disclosure/permission flows, command enforcement, time requests, usage sync, permission recovery, foreground-service recovery, edge-to-edge rendering, predictive-back behavior, tablet/foldable resizing, device restart/process-death behavior, and supported Android versions.
 - Firebase deployment is manual. Rules and callable Functions that form the server-authoritative control plane should be deployed as a coordinated release rather than independently introducing an incompatible client/server boundary.
 
 ## Development-environment constraints

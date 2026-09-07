@@ -12,8 +12,7 @@ android {
     defaultConfig {
         applicationId "com.digitalparenting"
         minSdk 26
-        // Intentionally held at API 34 until the Phase 6 runtime compatibility work is complete.
-        targetSdk 34
+        targetSdk 36
         versionCode 1
         versionName "1.0"
 
