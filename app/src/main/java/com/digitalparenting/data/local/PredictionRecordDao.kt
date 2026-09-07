@@ -25,29 +25,6 @@ interface PredictionRecordDao {
     @Query("SELECT COUNT(*) FROM prediction_records WHERE wasAccurate = 0")
     suspend fun getInaccuratePredictionCount(): Int
 
-    @Query("SELECT COUNT(*) FROM prediction_records")
-    suspend fun getTotalPredictionCount(): Int
-
-    @Query("SELECT * FROM prediction_records ORDER BY timestamp DESC LIMIT 1")
-    suspend fun getLatestPrediction(): com.digitalparenting.data.PredictionRecordEntity?
-
     @Query("SELECT AVG(riskScore) FROM prediction_records WHERE timestamp >= :fromTime")
     suspend fun getAverageRiskSince(fromTime: Long): Float?
-
-    @Query("SELECT * FROM prediction_records ORDER BY timestamp DESC LIMIT :limit")
-    suspend fun getRecentPredictions(limit: Int): List<com.digitalparenting.data.PredictionRecordEntity>
-
-    @Query("""
-        SELECT * FROM prediction_records
-            WHERE wasAccurate IS NOT NULL
-                ORDER BY timestamp DESC
-                    LIMIT :limit
-        """)
-    suspend fun getRecentEvaluatedPredictions(limit: Int): List<com.digitalparenting.data.PredictionRecordEntity>
-
-    @Query("SELECT * FROM prediction_records WHERE timestamp >= :sinceTime ORDER BY timestamp ASC")
-    suspend fun getPredictionsSince(sinceTime: Long): List<com.digitalparenting.data.PredictionRecordEntity>
-
-    @Query("SELECT AVG(riskScore) as avgRisk, strftime('%Y-%m-%d', timestamp/1000, 'unixepoch') as date FROM prediction_records WHERE timestamp >= :sinceTime GROUP BY strftime('%Y-%m-%d', timestamp/1000, 'unixepoch') ORDER BY date ASC")
-    suspend fun getDailyAverageRiskSince(sinceTime: Long): List<com.digitalparenting.data.DailyRiskStats>
 }
